@@ -2,7 +2,6 @@
 
 import { motion, useReducedMotion } from "framer-motion";
 import { SearchBar } from "./search-bar";
-import Image from "next/image";
 import { ShieldCheck, Clock, Headphones } from "lucide-react";
 
 export function Hero() {
@@ -20,19 +19,24 @@ export function Hero() {
             className="relative min-h-[100svh] flex flex-col pt-20 pb-12 overflow-hidden"
             aria-labelledby="hero-heading"
         >
-            {/* Hero Background Image */}
+            {/* Premium Gradient Background - Spiritual & Modern */}
             <div className="absolute inset-0 z-0">
-                <Image
-                    src="/ramji.jpg"
-                    alt="Ram Mandir Ayodhya - Divine spiritual destination"
-                    fill
-                    priority
-                    quality={90}
-                    sizes="100vw"
-                    className="object-cover"
-                />
-                {/* Optimized Gradient Overlay */}
-                <div className="absolute inset-0 bg-gradient-to-b from-slate-900/85 via-slate-900/70 to-slate-900/85" />
+                {/* Main Gradient - Saffron to Deep Teal (Indian spiritual colors) */}
+                <div className="absolute inset-0 bg-gradient-to-br from-[#FF9933] via-[#138808] to-[#000080]" />
+                
+                {/* Overlay Gradient for depth */}
+                <div className="absolute inset-0 bg-gradient-to-t from-slate-900/90 via-slate-900/50 to-slate-900/70" />
+                
+                {/* Animated Gradient Orbs for visual interest */}
+                <div className="absolute top-0 left-0 w-[500px] h-[500px] bg-gradient-to-br from-amber-500/30 to-orange-600/20 rounded-full blur-3xl animate-pulse" />
+                <div className="absolute bottom-0 right-0 w-[600px] h-[600px] bg-gradient-to-tl from-teal-500/30 to-cyan-600/20 rounded-full blur-3xl animate-pulse" style={{ animationDelay: '1s' }} />
+                <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[400px] h-[400px] bg-gradient-to-r from-green-500/20 to-emerald-600/20 rounded-full blur-3xl animate-pulse" style={{ animationDelay: '2s' }} />
+                
+                {/* Subtle Pattern Overlay for texture */}
+                <div className="absolute inset-0 opacity-[0.03]" style={{
+                    backgroundImage: `radial-gradient(circle at 2px 2px, white 1px, transparent 0)`,
+                    backgroundSize: '32px 32px'
+                }} />
             </div>
 
             {/* Content Container */}
