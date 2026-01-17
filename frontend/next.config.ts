@@ -4,7 +4,7 @@ const nextConfig: NextConfig = {
   reactCompiler: true,
   output: 'standalone', // Enable standalone output for Docker
   turbopack: {
-    root: '../'
+    root: process.cwd() + '/../'
   },
   images: {
     remotePatterns: [

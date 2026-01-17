@@ -115,7 +115,7 @@ DATABASE_HOST=localhost
 DATABASE_PORT=5432
 DATABASE_USERNAME=postgres
 DATABASE_PASSWORD=Aryan21@!
-DATABASE_NAME=shambit_db
+DATABASE_NAME=shambit_hotels
 
 JWT_ACCESS_SECRET=your-super-secret-jwt-access-key
 JWT_REFRESH_SECRET=your-super-secret-jwt-refresh-key
