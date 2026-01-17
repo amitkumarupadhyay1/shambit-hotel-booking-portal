@@ -20,7 +20,7 @@ services:
       dockerfile: Dockerfile.frontend
       target: deps  # Use deps stage for development
     volumes:
-      - .:/app
+      - ./frontend:/app
       - /app/node_modules
       - /app/.next
     environment:
@@ -29,7 +29,7 @@ services:
     
   postgres:
     environment:
-      POSTGRES_DB: shambit_dev
+      POSTGRES_DB: shambit_hotels_dev
       
   # Remove nginx in development
   nginx:

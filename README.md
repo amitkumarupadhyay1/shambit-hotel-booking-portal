@@ -19,6 +19,7 @@ npm run start:prod
 
 ### 2. Start Frontend
 ```bash
+cd frontend
 npm install
 npm run dev
 ```
@@ -92,14 +93,18 @@ shambit-hotel-portal/
 │   │   ├── unit/          # Unit tests
 │   │   └── e2e/           # Integration tests
 │   └── package.json
-├── src/                    # Next.js Frontend
-│   ├── app/
-│   │   ├── (auth)/        # Auth pages
-│   │   └── (dashboard)/   # Dashboard pages
-│   ├── components/        # Reusable components
-│   ├── hooks/            # Custom hooks
-│   └── lib/              # Utilities & API
-└── package.json
+├── frontend/               # Next.js Frontend
+│   ├── src/
+│   │   ├── app/
+│   │   │   ├── (auth)/    # Auth pages
+│   │   │   └── (dashboard)/ # Dashboard pages
+│   │   ├── components/    # Reusable components
+│   │   ├── hooks/        # Custom hooks
+│   │   └── lib/          # Utilities & API
+│   └── package.json
+├── docs/                  # Documentation
+├── scripts/              # Deployment scripts
+└── docker-compose.yml    # Container orchestration
 ```
 
 ## 🔧 Configuration
@@ -123,7 +128,7 @@ FRONTEND_URL=http://localhost:3000
 BCRYPT_ROUNDS=12
 ```
 
-### Frontend Environment (.env.local)
+### Frontend Environment (frontend/.env.local)
 ```env
 NEXT_PUBLIC_API_URL=http://localhost:3002/api/v1
 ```

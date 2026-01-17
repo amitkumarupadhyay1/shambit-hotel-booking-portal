@@ -27,7 +27,7 @@ services:
   postgres:
     restart: always
     environment:
-      POSTGRES_DB: shambit_prod
+      POSTGRES_DB: shambit_hotels_prod
     deploy:
       resources:
         limits:

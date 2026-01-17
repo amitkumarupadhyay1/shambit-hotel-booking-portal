@@ -8,7 +8,7 @@ services:
     container_name: shambit-postgres
     restart: unless-stopped
     environment:
-      POSTGRES_DB: shambit_db
+      POSTGRES_DB: shambit_hotels
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: ${DATABASE_PASSWORD:-Aryan21@!}
       POSTGRES_INITDB_ARGS: "--encoding=UTF-8 --lc-collate=C --lc-ctype=C"
@@ -18,7 +18,7 @@ services:
       - postgres_data:/var/lib/postgresql/data
       - ./backend/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U postgres -d shambit_db"]
+      test: ["CMD-SHELL", "pg_isready -U postgres -d shambit_hotels"]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -58,7 +58,7 @@ services:
       DATABASE_PORT: 5432
       DATABASE_USERNAME: postgres
       DATABASE_PASSWORD: ${DATABASE_PASSWORD:-Aryan21@!}
-      DATABASE_NAME: shambit_db
+      DATABASE_NAME: shambit_hotels
       JWT_ACCESS_SECRET: ${JWT_ACCESS_SECRET:-your-super-secret-jwt-access-key}
       JWT_REFRESH_SECRET: ${JWT_REFRESH_SECRET:-your-super-secret-jwt-refresh-key}
       JWT_ACCESS_EXPIRES_IN: 15m
