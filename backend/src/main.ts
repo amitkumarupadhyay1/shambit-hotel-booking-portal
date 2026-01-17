@@ -39,10 +39,21 @@ async function bootstrap() {
   // API prefix
   app.setGlobalPrefix('api/v1');
 
+  // Health check endpoint (outside of global prefix)
+  app.getHttpAdapter().get('/health', (req, res) => {
+    res.status(200).json({
+      status: 'ok',
+      timestamp: new Date().toISOString(),
+      uptime: process.uptime(),
+      environment: process.env.NODE_ENV || 'development'
+    });
+  });
+
   const port = configService.get('PORT', 3002);
   await app.listen(port);
 
   logger.log(`🚀 Application is running on: http://localhost:${port}/api/v1`);
+  logger.log(`🏥 Health check available at: http://localhost:${port}/health`);
 }
 
 bootstrap();

@@ -1,0 +1,67 @@
+name: Deploy Backend
+
+on:
+  push:
+    branches: [ main ]
+    paths:
+      - 'backend/**'
+      - '.github/workflows/deploy-backend.yml'
+  workflow_dispatch:
+
+env:
+  NODE_VERSION: '20'
+
+jobs:
+  deploy-backend:
+    name: Deploy Backend to Railway/Render
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: ${{ env.NODE_VERSION }}
+        cache: 'npm'
+        cache-dependency-path: backend/package-lock.json
+
+    - name: Install dependencies
+      working-directory: ./backend
+      run: npm ci --only=production
+
+    - name: Build application
+      working-directory: ./backend
+      run: npm run build
+
+    # Deploy to Railway (uncomment when ready)
+    # - name: Deploy to Railway
+    #   uses: railwayapp/railway-deploy@v1
+    #   with:
+    #     railway_token: ${{ secrets.RAILWAY_TOKEN }}
+    #     service: shambit-backend
+
+    # Deploy to Render (alternative option)
+    # - name: Deploy to Render
+    #   uses: johnbeynon/render-deploy-action@v0.0.8
+    #   with:
+    #     service-id: ${{ secrets.RENDER_SERVICE_ID }}
+    #     api-key: ${{ secrets.RENDER_API_KEY }}
+
+    # Deploy to Heroku (alternative option)
+    # - name: Deploy to Heroku
+    #   uses: akhileshns/heroku-deploy@v3.12.14
+    #   with:
+    #     heroku_api_key: ${{ secrets.HEROKU_API_KEY }}
+    #     heroku_app_name: shambit-backend
+    #     heroku_email: ${{ secrets.HEROKU_EMAIL }}
+    #     appdir: backend
+
+    - name: Deployment Status
+      run: |
+        echo "🚀 Backend deployment workflow completed"
+        echo "Uncomment the deployment step for your chosen platform:"
+        echo "- Railway: Fast, modern deployment"
+        echo "- Render: Free tier available"
+        echo "- Heroku: Traditional PaaS"

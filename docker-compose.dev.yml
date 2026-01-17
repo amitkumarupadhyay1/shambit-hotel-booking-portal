@@ -1,0 +1,36 @@
+# Development environment overrides
+version: '3.8'
+
+services:
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+      target: builder  # Use builder stage for development
+    volumes:
+      - ./backend/src:/app/src
+      - ./backend/package.json:/app/package.json
+    environment:
+      NODE_ENV: development
+    command: npm run start:dev
+    
+  frontend:
+    build:
+      context: .
+      dockerfile: Dockerfile.frontend
+      target: deps  # Use deps stage for development
+    volumes:
+      - .:/app
+      - /app/node_modules
+      - /app/.next
+    environment:
+      NODE_ENV: development
+    command: npm run dev
+    
+  postgres:
+    environment:
+      POSTGRES_DB: shambit_dev
+      
+  # Remove nginx in development
+  nginx:
+    profiles: ["production"]
