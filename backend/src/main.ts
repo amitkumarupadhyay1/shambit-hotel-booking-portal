@@ -1,10 +1,12 @@
 import { NestFactory } from '@nestjs/core';
 import { ValidationPipe, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import cookieParser from 'cookie-parser';
-import compression from 'compression';
-import helmet from 'helmet';
 import { AppModule } from './app.module';
+
+// Import middleware with require for compatibility
+const cookieParser = require('cookie-parser');
+const compression = require('compression');
+const helmet = require('helmet');
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
