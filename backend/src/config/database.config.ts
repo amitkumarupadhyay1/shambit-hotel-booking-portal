@@ -19,7 +19,7 @@ export class DatabaseConfig implements TypeOrmOptionsFactory {
       database: this.configService.get('DATABASE_NAME'),
       entities: [User, AuditLog],
       synchronize: this.configService.get('NODE_ENV') === 'development',
-      logging: this.configService.get('NODE_ENV') === 'development',
+      logging: false, // Disable SQL logging to reduce console noise
       ssl: this.configService.get('NODE_ENV') === 'production' ? { rejectUnauthorized: false } : false,
     };
   }

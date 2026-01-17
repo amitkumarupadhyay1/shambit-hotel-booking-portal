@@ -11,6 +11,7 @@ const apiClient = axios.create({
 
 // Store access token in memory (not localStorage for security)
 let accessToken: string | null = null;
+let refreshPromise: Promise<any> | null = null; // Prevent multiple simultaneous refresh attempts
 
 export const setAccessToken = (token: string | null) => {
     accessToken = token;
@@ -45,8 +46,14 @@ apiClient.interceptors.response.use(
             originalRequest._retry = true;
 
             try {
-                // Call refresh endpoint (cookies sent automatically)
-                const refreshResponse = await apiClient.post('/auth/refresh');
+                // If refresh is already in progress, wait for it
+                if (!refreshPromise) {
+                    refreshPromise = apiClient.post('/auth/refresh');
+                }
+                
+                const refreshResponse = await refreshPromise;
+                refreshPromise = null; // Clear the promise
+                
                 const newAccessToken = refreshResponse.data.accessToken;
                 
                 // Update stored access token
@@ -60,6 +67,7 @@ apiClient.interceptors.response.use(
                 // Retry original request
                 return apiClient(originalRequest);
             } catch (refreshError) {
+                refreshPromise = null; // Clear the promise on error
                 // Refresh failed, clear token and redirect to login
                 setAccessToken(null);
                 if (typeof window !== 'undefined') {
