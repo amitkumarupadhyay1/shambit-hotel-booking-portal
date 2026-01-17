@@ -10,7 +10,7 @@ import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { useAuth } from '@/hooks/use-auth';
 import { useRouter } from 'next/navigation';
-import { Check, ChevronRight, Loader2 } from 'lucide-react';
+import { Check, ChevronRight } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 // Step 1 Schema
@@ -25,8 +25,8 @@ type BasicInfoData = z.infer<typeof basicInfoSchema>;
 export default function OnboardingPage() {
     const [step, setStep] = useState(1);
     const router = useRouter();
-    const { user } = useAuth();
-    const [formData, setFormData] = useState<any>({});
+    const { user: _user } = useAuth();
+    const [formData, setFormData] = useState<Record<string, unknown>>({});
 
     const basicInfoForm = useForm<BasicInfoData>({
         resolver: zodResolver(basicInfoSchema),
@@ -74,7 +74,7 @@ export default function OnboardingPage() {
                         {step === 6 && "Legal Compliance"}
                     </CardTitle>
                     <CardDescription>
-                        Step {step} of 6 - Let's get your property listed.
+                        Step {step} of 6 - Let&apos;s get your property listed.
                     </CardDescription>
                 </CardHeader>
                 <CardContent>

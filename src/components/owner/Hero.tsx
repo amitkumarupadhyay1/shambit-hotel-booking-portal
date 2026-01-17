@@ -51,7 +51,7 @@ export default function Hero() {
           {/* CTA Buttons */}
           <div className="mt-12 flex flex-col gap-4 sm:flex-row sm:justify-center">
             <Link
-              href="/owner/login"
+              href="/login?type=owner"
               className="inline-flex items-center justify-center rounded-full bg-orange-600 px-8 py-4 text-lg font-semibold text-white shadow-lg transition-colors hover:bg-orange-700 focus:outline-none focus:ring-2 focus:ring-orange-500 focus:ring-offset-2"
             >
               Login
@@ -60,7 +60,7 @@ export default function Hero() {
               </svg>
             </Link>
             <Link
-              href="/owner/register"
+              href="/register?type=owner"
               className="inline-flex items-center justify-center rounded-full border-2 border-orange-600 bg-white px-8 py-4 text-lg font-semibold text-orange-600 shadow-lg transition-colors hover:bg-orange-50 focus:outline-none focus:ring-2 focus:ring-orange-500 focus:ring-offset-2"
             >
               Register Your Property

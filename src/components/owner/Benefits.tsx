@@ -100,7 +100,7 @@ export default function Benefits() {
             </p>
             <div className="mt-6 flex flex-col gap-4 sm:flex-row sm:justify-center">
               <a
-                href="/owner/register"
+                href="/register?type=owner"
                 className="inline-flex items-center justify-center rounded-full bg-white px-6 py-3 font-semibold text-orange-600 transition-colors hover:bg-gray-50"
               >
                 Register Your Property
@@ -109,7 +109,7 @@ export default function Benefits() {
                 </svg>
               </a>
               <a
-                href="/owner/login"
+                href="/login?type=owner"
                 className="inline-flex items-center justify-center rounded-full border-2 border-white bg-transparent px-6 py-3 font-semibold text-white transition-colors hover:bg-white hover:text-orange-600"
               >
                 Already Registered? Login

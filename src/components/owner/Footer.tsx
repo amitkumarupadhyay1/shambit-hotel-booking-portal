@@ -2,8 +2,8 @@ import Link from 'next/link';
 
 const footerLinks = {
   platform: [
-    { name: 'Login', href: '/owner/login' },
-    { name: 'Register', href: '/owner/register' },
+    { name: 'Login', href: '/login?type=owner' },
+    { name: 'Register', href: '/register?type=owner' },
     { name: 'Dashboard', href: '/owner/dashboard' },
     { name: 'Properties', href: '/owner/properties' },
   ],
@@ -43,7 +43,7 @@ export default function Footer() {
               <span className="text-xl font-bold">Shambit</span>
             </div>
             <p className="mt-4 text-gray-400 leading-relaxed">
-              Empowering Ayodhya's hospitality industry with technology.
+              Empowering Ayodhya&apos;s hospitality industry with technology.
               Connecting property owners with travelers through our seamless booking platform.
             </p>
             <div className="mt-6">

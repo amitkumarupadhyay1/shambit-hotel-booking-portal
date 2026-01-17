@@ -3,16 +3,28 @@ import { toast } from 'sonner';
 
 const apiClient = axios.create({
     baseURL: process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3002/api/v1',
-    withCredentials: true, // Important: Send cookies
+    withCredentials: true, // Important: Send cookies for refresh tokens
     headers: {
         'Content-Type': 'application/json',
     },
 });
 
+// Store access token in memory (not localStorage for security)
+let accessToken: string | null = null;
+
+export const setAccessToken = (token: string | null) => {
+    accessToken = token;
+};
+
+export const getAccessToken = () => accessToken;
+
 // Request interceptor
 apiClient.interceptors.request.use(
     (config: InternalAxiosRequestConfig) => {
-        // Cookies are automatically sent with withCredentials: true
+        // Add access token to Authorization header if available
+        if (accessToken) {
+            config.headers.Authorization = `Bearer ${accessToken}`;
+        }
         return config;
     },
     (error: AxiosError) => {
@@ -34,12 +46,22 @@ apiClient.interceptors.response.use(
 
             try {
                 // Call refresh endpoint (cookies sent automatically)
-                await apiClient.post('/auth/refresh');
+                const refreshResponse = await apiClient.post('/auth/refresh');
+                const newAccessToken = refreshResponse.data.accessToken;
+                
+                // Update stored access token
+                setAccessToken(newAccessToken);
+                
+                // Update the original request with new token
+                if (originalRequest.headers) {
+                    originalRequest.headers.Authorization = `Bearer ${newAccessToken}`;
+                }
 
                 // Retry original request
                 return apiClient(originalRequest);
             } catch (refreshError) {
-                // Refresh failed, redirect to login
+                // Refresh failed, clear token and redirect to login
+                setAccessToken(null);
                 if (typeof window !== 'undefined') {
                     // Avoid infinite redirect loop
                     if (window.location.pathname !== '/login') {
@@ -52,7 +74,7 @@ apiClient.interceptors.response.use(
 
         // Handle other errors
         const message =
-            (error.response?.data as any)?.message ||
+            (error.response?.data as { message?: string })?.message ||
             error.message ||
             'An error occurred';
 

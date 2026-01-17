@@ -18,7 +18,7 @@ export function useAuth() {
             try {
                 const userData = await authApi.getProfile();
                 setUser(userData);
-            } catch (error) {
+            } catch (_error) {
                 setUser(null);
             } finally {
                 setLoading(false);
@@ -39,14 +39,14 @@ export function useAuth() {
 
             // Redirect based on role
             if (response.user.roles.includes(UserRole.ADMIN)) {
-                router.push('/admin/dashboard');
+                router.push('/admin');
             } else if (response.user.roles.includes(UserRole.SELLER)) {
                 router.push('/dashboard');
             } else {
                 // Buyer or default
-                router.push('/');
+                router.push('/dashboard');
             }
-        } catch (error: any) {
+        } catch (error: unknown) {
             // Toast handled in axios interceptor for generic errors, 
             // but we can re-throw if needed for UI state
             throw error;
@@ -62,7 +62,7 @@ export function useAuth() {
             setUser(response.user);
             toast.success(response.message || 'Registration successful!');
             router.push('/onboarding');
-        } catch (error: any) {
+        } catch (error: unknown) {
             throw error;
         } finally {
             setLoading(false);
@@ -77,13 +77,13 @@ export function useAuth() {
             toast.success(response.message || 'Google login successful!');
 
             if (response.user.roles.includes(UserRole.ADMIN)) {
-                router.push('/admin/dashboard');
+                router.push('/admin');
             } else if (response.user.roles.includes(UserRole.SELLER)) {
                 router.push('/dashboard');
             } else {
-                router.push('/');
+                router.push('/dashboard');
             }
-        } catch (error: any) {
+        } catch (error: unknown) {
             throw error;
         } finally {
             setLoading(false);
@@ -96,7 +96,7 @@ export function useAuth() {
             clearAuth();
             toast.success('Logged out successfully');
             router.push('/login');
-        } catch (error) {
+        } catch (_error) {
             clearAuth();
             router.push('/login');
         }

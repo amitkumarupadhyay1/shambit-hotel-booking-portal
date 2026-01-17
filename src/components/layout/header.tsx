@@ -115,14 +115,16 @@ export function Header() {
                         </Button>
 
                         {/* Login Button */}
-                        <Button
-                            size="sm"
-                            className="bg-blue-600 text-white hover:bg-blue-700 shadow-sm border border-blue-700 font-bold px-4 sm:px-6 rounded-md min-h-[44px] touch-manipulation"
-                            aria-label="Login or Sign up"
-                        >
-                            <User className="w-4 h-4 sm:hidden" aria-hidden="true" />
-                            <span className="hidden sm:inline">Login / Sign up</span>
-                        </Button>
+                        <Link href="/login">
+                            <Button
+                                size="sm"
+                                className="bg-blue-600 text-white hover:bg-blue-700 shadow-sm border border-blue-700 font-bold px-4 sm:px-6 rounded-md min-h-[44px] touch-manipulation"
+                                aria-label="Login or Sign up"
+                            >
+                                <User className="w-4 h-4 sm:hidden" aria-hidden="true" />
+                                <span className="hidden sm:inline">Login / Sign up</span>
+                            </Button>
+                        </Link>
 
                         {/* Mobile Menu Trigger */}
                         <button 

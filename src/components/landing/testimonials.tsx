@@ -39,7 +39,7 @@ export function Testimonials() {
                                         <Star key={i} className="w-4 h-4 text-orange-400 fill-orange-400" />
                                     ))}
                                 </div>
-                                <p className="text-gray-700 text-lg font-medium italic mb-8 leading-relaxed">"{t.quote}"</p>
+                                <p className="text-gray-700 text-lg font-medium italic mb-8 leading-relaxed">&ldquo;{t.quote}&rdquo;</p>
                                 <div className="flex items-center gap-4">
                                     <div className="w-12 h-12 rounded-full bg-gradient-to-br from-orange-400 to-amber-500 flex items-center justify-center text-white font-bold text-lg shadow-md">
                                         {t.author[0]}

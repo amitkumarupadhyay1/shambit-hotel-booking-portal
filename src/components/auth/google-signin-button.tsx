@@ -7,14 +7,21 @@ import { Loader2 } from 'lucide-react';
 
 declare global {
     interface Window {
-        google: any;
+        google: {
+            accounts: {
+                id: {
+                    initialize: (config: { client_id: string; callback: (response: { credential: string }) => void }) => void;
+                    renderButton: (element: HTMLElement, options: { theme: string; size: string }) => void;
+                    prompt: () => void;
+                };
+            };
+        };
     }
 }
 
 export function GoogleSignInButton() {
     const { loginWithGoogle } = useAuth();
     const [isLoading, setIsLoading] = useState(false);
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     const [isScriptLoaded, setIsScriptLoaded] = useState(false);
 
     useEffect(() => {
@@ -41,14 +48,14 @@ export function GoogleSignInButton() {
     useEffect(() => {
         if (window.google) {
             window.google.accounts.id.initialize({
-                client_id: process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID,
+                client_id: process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID || '',
                 callback: handleGoogleResponse,
             });
         }
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [isScriptLoaded]); // dependent on script load
 
-    const handleGoogleResponse = async (response: any) => {
+    const handleGoogleResponse = async (response: { credential: string }) => {
         setIsLoading(true);
         try {
             // Google returns 'credential' which is the ID token

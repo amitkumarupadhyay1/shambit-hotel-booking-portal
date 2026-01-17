@@ -11,7 +11,6 @@ import {
     Banknote,
     BarChart3,
     Settings,
-    HelpCircle,
     LogOut,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';

@@ -1,4 +1,4 @@
-import apiClient from './client';
+import apiClient, { setAccessToken } from './client';
 import {
     LoginCredentials,
     RegisterCredentials,
@@ -13,6 +13,12 @@ export const authApi = {
             '/auth/login',
             credentials
         );
+        
+        // Store access token in memory
+        if (data.accessToken) {
+            setAccessToken(data.accessToken);
+        }
+        
         return data;
     },
 
@@ -22,14 +28,25 @@ export const authApi = {
             '/auth/register',
             credentials
         );
+        
+        // Store access token in memory
+        if (data.accessToken) {
+            setAccessToken(data.accessToken);
+        }
+        
         return data;
     },
 
-    // Google OAuth
+    // Google OAuth (placeholder - not implemented in backend yet)
     googleAuth: async (googleToken: string): Promise<AuthResponse> => {
         const { data } = await apiClient.post<AuthResponse>('/auth/google', {
             token: googleToken,
         });
+        
+        if (data.accessToken) {
+            setAccessToken(data.accessToken);
+        }
+        
         return data;
     },
 
@@ -39,14 +56,21 @@ export const authApi = {
         return data;
     },
 
-    // Refresh token
-    refresh: async (): Promise<AuthResponse> => {
-        const { data } = await apiClient.post<AuthResponse>('/auth/refresh');
+    // Refresh token (handled automatically by interceptor)
+    refresh: async (): Promise<{ accessToken: string; message: string }> => {
+        const { data } = await apiClient.post<{ accessToken: string; message: string }>('/auth/refresh');
+        
+        if (data.accessToken) {
+            setAccessToken(data.accessToken);
+        }
+        
         return data;
     },
 
     // Logout
     logout: async (): Promise<void> => {
         await apiClient.post('/auth/logout');
+        // Clear access token from memory
+        setAccessToken(null);
     },
 };

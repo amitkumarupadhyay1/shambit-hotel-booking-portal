@@ -26,7 +26,7 @@ export default function Error({
         <div className="space-y-2">
           <h1 className="text-3xl font-bold text-gray-900">Something went wrong</h1>
           <p className="text-gray-600">
-            We're sorry, but something unexpected happened. Please try again.
+            We&apos;re sorry, but something unexpected happened. Please try again.
           </p>
         </div>
 
