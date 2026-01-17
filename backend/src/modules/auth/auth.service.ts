@@ -8,7 +8,7 @@ import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
 import { UsersService } from '../users/users.service';
 import { AuditService } from '../audit/audit.service';
-import { User } from '../users/entities/user.entity';
+import { User, UserRole } from '../users/entities/user.entity';
 import { LoginDto } from './dto/login.dto';
 import { RegisterDto } from './dto/register.dto';
 import { JwtPayload } from './interfaces/jwt-payload.interface';
@@ -81,7 +81,17 @@ export class AuthService {
 
   async register(registerDto: RegisterDto, ipAddress: string, userAgent: string): Promise<AuthResponse> {
     try {
-      const user = await this.usersService.create(registerDto);
+      // Determine role based on registration context
+      let roles = [UserRole.BUYER]; // Default for customers
+      
+      if (registerDto.role === UserRole.SELLER) {
+        roles = [UserRole.SELLER];
+      }
+
+      const user = await this.usersService.create({
+        ...registerDto,
+        roles,
+      });
 
       // Generate tokens
       const tokens = await this.generateTokens(user);
@@ -92,7 +102,7 @@ export class AuthService {
         resource: 'user',
         resourceId: user.id,
         userId: user.id,
-        details: { ipAddress, userAgent },
+        details: { ipAddress, userAgent, roles: user.roles },
       });
 
       return {

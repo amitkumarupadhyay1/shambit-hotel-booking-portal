@@ -29,11 +29,14 @@ export class UsersService {
     const saltRounds = parseInt(this.configService.get('BCRYPT_ROUNDS', '12'), 10);
     const hashedPassword = await bcrypt.hash(createUserDto.password, saltRounds);
 
+    // Determine role - default to BUYER for customers, allow override for partners
+    const roles = createUserDto.roles || [UserRole.BUYER];
+
     // Create user
     const user = this.usersRepository.create({
       ...createUserDto,
       password: hashedPassword,
-      roles: createUserDto.roles || [UserRole.BUYER],
+      roles,
       status: UserStatus.ACTIVE,
     });
 

@@ -30,6 +30,7 @@ export interface RegisterCredentials {
   email: string;
   password: string;
   phone?: string;
+  role?: UserRole;
 }
 
 export interface AuthState {

@@ -133,6 +133,7 @@ export function SearchBar() {
                 {/* Search Button */}
                 <div className="md:col-span-2">
                     <Button 
+                        onClick={() => window.location.href = '/search?location=Ayodhya&checkin=2026-01-16&checkout=2026-01-17&guests=2'}
                         className="w-full h-full min-h-[72px] bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white font-bold text-lg sm:text-xl rounded-xl shadow-lg shadow-blue-500/30 transition-all transform active:scale-[0.98] flex flex-col gap-1 touch-manipulation"
                         aria-label="Search hotels in Ayodhya"
                     >

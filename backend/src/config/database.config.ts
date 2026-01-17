@@ -4,6 +4,9 @@ import { TypeOrmModuleOptions, TypeOrmOptionsFactory } from '@nestjs/typeorm';
 import { DataSource, DataSourceOptions } from 'typeorm';
 import { User } from '../modules/users/entities/user.entity';
 import { AuditLog } from '../modules/audit/entities/audit-log.entity';
+import { Hotel } from '../modules/hotels/entities/hotel.entity';
+import { Room } from '../modules/rooms/entities/room.entity';
+import { Booking } from '../modules/bookings/entities/booking.entity';
 
 @Injectable()
 export class DatabaseConfig implements TypeOrmOptionsFactory {
@@ -17,7 +20,7 @@ export class DatabaseConfig implements TypeOrmOptionsFactory {
       username: this.configService.get('DATABASE_USERNAME'),
       password: this.configService.get('DATABASE_PASSWORD'),
       database: this.configService.get('DATABASE_NAME'),
-      entities: [User, AuditLog],
+      entities: [User, AuditLog, Hotel, Room, Booking],
       synchronize: this.configService.get('NODE_ENV') === 'development',
       logging: false, // Disable SQL logging to reduce console noise
       ssl: this.configService.get('NODE_ENV') === 'production' ? { rejectUnauthorized: false } : false,
@@ -33,7 +36,7 @@ export const dataSourceOptions: DataSourceOptions = {
   username: process.env.DATABASE_USERNAME,
   password: process.env.DATABASE_PASSWORD,
   database: process.env.DATABASE_NAME,
-  entities: [User, AuditLog],
+  entities: [User, AuditLog, Hotel, Room, Booking],
   migrations: ['src/migrations/*.ts'],
   synchronize: false,
 };

@@ -41,10 +41,10 @@ export function useAuth() {
             if (response.user.roles.includes(UserRole.ADMIN)) {
                 router.push('/admin');
             } else if (response.user.roles.includes(UserRole.SELLER)) {
-                router.push('/dashboard');
+                router.push('/partner/dashboard');
             } else {
-                // Buyer or default
-                router.push('/dashboard');
+                // Customers go to their bookings or main site
+                router.push('/my-bookings');
             }
         } catch (error: unknown) {
             // Toast handled in axios interceptor for generic errors, 
@@ -61,7 +61,16 @@ export function useAuth() {
             const response = await authApi.register(credentials);
             setUser(response.user);
             toast.success(response.message || 'Registration successful!');
-            router.push('/onboarding');
+            
+            // Route based on user role after registration
+            if (response.user.roles.includes(UserRole.SELLER)) {
+                router.push('/onboarding'); // Hotel owners go to property setup
+            } else if (response.user.roles.includes(UserRole.ADMIN)) {
+                router.push('/admin');
+            } else {
+                // Customers go to main site or their bookings
+                router.push('/');
+            }
         } catch (error: unknown) {
             throw error;
         } finally {
@@ -79,9 +88,9 @@ export function useAuth() {
             if (response.user.roles.includes(UserRole.ADMIN)) {
                 router.push('/admin');
             } else if (response.user.roles.includes(UserRole.SELLER)) {
-                router.push('/dashboard');
+                router.push('/partner/dashboard');
             } else {
-                router.push('/dashboard');
+                router.push('/my-bookings');
             }
         } catch (error: unknown) {
             throw error;

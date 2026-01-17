@@ -1,4 +1,5 @@
-import { IsEmail, IsString, IsOptional, MinLength, MaxLength, Matches } from 'class-validator';
+import { IsEmail, IsString, IsOptional, MinLength, MaxLength, Matches, IsEnum } from 'class-validator';
+import { UserRole } from '../../users/entities/user.entity';
 
 export class RegisterDto {
   @IsString()
@@ -23,4 +24,8 @@ export class RegisterDto {
   @IsString()
   @Matches(/^\+?[\d\s\-()]+$/, { message: 'Invalid phone number' })
   phone?: string;
+
+  @IsOptional()
+  @IsEnum(UserRole)
+  role?: UserRole;
 }

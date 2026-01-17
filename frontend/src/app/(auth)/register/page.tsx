@@ -32,7 +32,12 @@ export default function RegisterPage() {
     const onSubmit = async (data: RegisterInput) => {
         setIsSubmitting(true);
         try {
-            await registerUser(data);
+            // Add role based on registration type
+            const registrationData = {
+                ...data,
+                role: isOwner ? 'SELLER' : 'BUYER'
+            };
+            await registerUser(registrationData);
         } catch (error) {
             console.error(error);
         } finally {
