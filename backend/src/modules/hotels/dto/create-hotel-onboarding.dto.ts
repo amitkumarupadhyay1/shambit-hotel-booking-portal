@@ -1,8 +1,7 @@
-import { IsString, IsNotEmpty, IsEnum, IsOptional, IsArray, IsEmail, Length, IsObject, ValidateNested, IsPhoneNumber } from 'class-validator';
+import { IsString, IsNotEmpty, IsEnum, IsOptional, IsArray, IsEmail, Length, IsObject, ValidateNested, IsPhoneNumber, IsNumber, Min, Max } from 'class-validator';
 import { Type } from 'class-transformer';
 import { HotelType } from '../entities/hotel.entity';
-import { CreateRoomDto } from '../../rooms/dto/create-room.dto';
-import { OmitType } from '@nestjs/mapped-types';
+import { RoomType } from '../../rooms/entities/room.entity';
 
 export class HotelBaseDto {
     @IsString()
@@ -56,8 +55,70 @@ export class HotelBaseDto {
     amenities?: string[];
 }
 
-// Room DTO for onboarding shouldn't require hotelId
-export class OnboardingRoomDto extends OmitType(CreateRoomDto, ['hotelId'] as const) { }
+// Dedicated OnboardingRoomDto with strict validation matching frontend requirements
+export class OnboardingRoomDto {
+    @IsString()
+    @IsNotEmpty()
+    @Length(1, 100)
+    name: string;
+
+    @IsEnum(RoomType)
+    @IsNotEmpty() // Required for onboarding
+    roomType: RoomType;
+
+    @Type(() => Number)
+    @IsNumber()
+    @IsNotEmpty() // Required for onboarding
+    @Min(0)
+    basePrice: number;
+
+    @Type(() => Number)
+    @IsNumber()
+    @IsNotEmpty() // Required for onboarding
+    @Min(1)
+    @Max(20)
+    maxOccupancy: number;
+
+    @Type(() => Number)
+    @IsNumber()
+    @IsNotEmpty() // Required for onboarding
+    @Min(1)
+    @Max(10)
+    bedCount: number;
+
+    @IsString()
+    @IsNotEmpty() // Required for onboarding
+    @Length(2, 50)
+    bedType: string;
+
+    // Optional fields for onboarding (can be added later)
+    @IsString()
+    @IsOptional()
+    description?: string;
+
+    @Type(() => Number)
+    @IsNumber()
+    @IsOptional()
+    @Min(0)
+    weekendPrice?: number;
+
+    @Type(() => Number)
+    @IsNumber()
+    @IsOptional()
+    @Min(1)
+    @Max(1000)
+    roomSize?: number;
+
+    @IsArray()
+    @IsString({ each: true })
+    @IsOptional()
+    amenities?: string[];
+
+    @IsArray()
+    @IsString({ each: true })
+    @IsOptional()
+    images?: string[];
+}
 
 export class CreateHotelOnboardingDto {
     @IsObject()
