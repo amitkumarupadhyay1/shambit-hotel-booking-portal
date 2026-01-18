@@ -18,9 +18,21 @@ async function bootstrap() {
   app.use(compression());
   app.use(cookieParser());
 
+  // Request logging middleware for debugging
+  app.use((req, res, next) => {
+    logger.log(`${req.method} ${req.url} - ${req.ip}`);
+    next();
+  });
+
   // CORS configuration
   app.enableCors({
-    origin: configService.get('FRONTEND_URL', 'http://localhost:3000'),
+    origin: [
+      configService.get('FRONTEND_URL', 'http://localhost:3000'),
+      'http://localhost:3000',
+      /^http:\/\/192\.168\.\d{1,3}\.\d{1,3}:3000$/,
+      /^http:\/\/10\.\d{1,3}\.\d{1,3}\.\d{1,3}:3000$/,
+      /^http:\/\/172\.(1[6-9]|2[0-9]|3[0-1])\.\d{1,3}\.\d{1,3}:3000$/
+    ],
     credentials: true,
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
     allowedHeaders: ['Content-Type', 'Authorization'],
@@ -52,9 +64,10 @@ async function bootstrap() {
   });
 
   const port = configService.get('PORT', 3002);
-  await app.listen(port);
+  await app.listen(port, '0.0.0.0');
 
   logger.log(`🚀 Application is running on: http://localhost:${port}/api/v1`);
+  logger.log(`🌐 Also accessible via local IP on port ${port}`);
   logger.log(`🏥 Health check available at: http://localhost:${port}/health`);
 }
 

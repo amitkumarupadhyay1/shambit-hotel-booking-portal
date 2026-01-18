@@ -36,7 +36,7 @@ export class Room {
   id: string;
 
   @Column({ type: 'varchar', length: 100 })
-  roomNumber: string;
+  name: string; // Changed from roomNumber to name for clarity
 
   @Column({
     type: 'enum',
@@ -71,6 +71,10 @@ export class Room {
 
   @Column({ type: 'decimal', precision: 10, scale: 2, nullable: true })
   weekendPrice: number;
+
+  // Inventory
+  @Column({ type: 'int', default: 1 })
+  quantity: number;
 
   // Room features
   @Column({ type: 'decimal', precision: 5, scale: 2, nullable: true })

@@ -15,7 +15,7 @@ export function Hero() {
         };
 
     return (
-        <section 
+        <section
             className="relative min-h-[100svh] flex flex-col pt-20 pb-12 overflow-hidden"
             aria-labelledby="hero-heading"
         >
@@ -23,15 +23,15 @@ export function Hero() {
             <div className="absolute inset-0 z-0">
                 {/* Main Gradient - Saffron to Deep Teal (Indian spiritual colors) */}
                 <div className="absolute inset-0 bg-gradient-to-br from-[#FF9933] via-[#138808] to-[#000080]" />
-                
+
                 {/* Overlay Gradient for depth */}
                 <div className="absolute inset-0 bg-gradient-to-t from-slate-900/90 via-slate-900/50 to-slate-900/70" />
-                
+
                 {/* Animated Gradient Orbs for visual interest */}
                 <div className="absolute top-0 left-0 w-[500px] h-[500px] bg-gradient-to-br from-amber-500/30 to-orange-600/20 rounded-full blur-3xl animate-pulse" />
                 <div className="absolute bottom-0 right-0 w-[600px] h-[600px] bg-gradient-to-tl from-teal-500/30 to-cyan-600/20 rounded-full blur-3xl animate-pulse" style={{ animationDelay: '1s' }} />
                 <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[400px] h-[400px] bg-gradient-to-r from-green-500/20 to-emerald-600/20 rounded-full blur-3xl animate-pulse" style={{ animationDelay: '2s' }} />
-                
+
                 {/* Subtle Pattern Overlay for texture */}
                 <div className="absolute inset-0 opacity-[0.03]" style={{
                     backgroundImage: `radial-gradient(circle at 2px 2px, white 1px, transparent 0)`,
@@ -48,7 +48,7 @@ export function Hero() {
                     transition={{ duration: 0.6 }}
                     className="text-center mb-8 md:mb-12 max-w-4xl"
                 >
-                    <h1 
+                    <h1
                         id="hero-heading"
                         className="text-4xl sm:text-5xl md:text-6xl lg:text-7xl font-bold font-serif text-white tracking-tight mb-4 md:mb-6 leading-[1.1]"
                     >
@@ -63,7 +63,7 @@ export function Hero() {
                     <p className="text-sm sm:text-base text-white/75 mt-3 font-normal">
                         <span className="inline-flex items-center gap-1.5">
                             <span className="w-2 h-2 bg-green-400 rounded-full animate-pulse" aria-hidden="true" />
-                            10,000+ pilgrims stayed last month
+                            Honest platform for verified pilgrim stays
                         </span>
                     </p>
                 </motion.div>
@@ -86,21 +86,21 @@ export function Hero() {
                     aria-label="Service benefits"
                 >
                     {[
-                        { 
-                            icon: ShieldCheck, 
-                            text: "Pay at Hotel", 
+                        {
+                            icon: ShieldCheck,
+                            text: "Pay at Hotel",
                             color: "from-green-400 to-emerald-500",
                             ariaLabel: "Secure payment - Pay at hotel"
                         },
-                        { 
-                            icon: Clock, 
-                            text: "Free Cancellation", 
+                        {
+                            icon: Clock,
+                            text: "Free Cancellation",
                             color: "from-blue-400 to-cyan-500",
                             ariaLabel: "Flexible booking - Free cancellation"
                         },
-                        { 
-                            icon: Headphones, 
-                            text: "24/7 Support", 
+                        {
+                            icon: Headphones,
+                            text: "24/7 Support",
                             color: "from-purple-400 to-pink-500",
                             ariaLabel: "Always available - 24/7 customer support"
                         },

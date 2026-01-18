@@ -10,6 +10,8 @@
     "start:dev": "nest start --watch",
     "start:debug": "nest start --debug --watch",
     "start:prod": "node dist/main",
+    "start:spiral2": "cp .env.spiral2 .env && nest start --watch",
+    "start:spiral3": "cp .env.spiral3 .env && nest start --watch",
     "lint": "eslint src --fix",
     "test": "jest",
     "test:watch": "jest --watch",
@@ -22,7 +24,8 @@
     "typeorm": "typeorm-ts-node-commonjs",
     "migration:generate": "npm run typeorm -- migration:generate -d src/config/database.config.ts",
     "migration:run": "npm run typeorm -- migration:run -d src/config/database.config.ts",
-    "migration:revert": "npm run typeorm -- migration:revert -d src/config/database.config.ts"
+    "migration:revert": "npm run typeorm -- migration:revert -d src/config/database.config.ts",
+    "seed:test-users": "ts-node -r tsconfig-paths/register src/scripts/seed-test-users.ts"
   },
   "dependencies": {
     "@nestjs/common": "^10.0.0",
@@ -39,6 +42,7 @@
     "class-validator": "^0.14.0",
     "compression": "^1.7.4",
     "cookie-parser": "^1.4.6",
+    "dotenv": "^16.4.5",
     "helmet": "^7.1.0",
     "passport": "^0.6.0",
     "passport-jwt": "^4.0.1",

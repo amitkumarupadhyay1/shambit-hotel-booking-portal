@@ -209,7 +209,7 @@ describe('AuthService', () => {
     const ipAddress = '127.0.0.1';
     const userAgent = 'Test Agent';
 
-    it('should register successfully', async () => {
+    it('should register customer successfully with default BUYER role', async () => {
       mockUsersService.create.mockResolvedValue(mockUser);
       mockJwtService.signAsync.mockResolvedValueOnce('access-token');
       mockJwtService.signAsync.mockResolvedValueOnce('refresh-token');
@@ -218,13 +218,16 @@ describe('AuthService', () => {
 
       const result = await service.register(registerDto, ipAddress, userAgent);
 
-      expect(mockUsersService.create).toHaveBeenCalledWith(registerDto);
+      expect(mockUsersService.create).toHaveBeenCalledWith({
+        ...registerDto,
+        roles: [UserRole.BUYER],
+      });
       expect(mockAuditService.log).toHaveBeenCalledWith({
         action: 'USER_REGISTERED',
         resource: 'user',
         resourceId: mockUser.id,
         userId: mockUser.id,
-        details: { ipAddress, userAgent },
+        details: { ipAddress, userAgent, roles: mockUser.roles },
       });
       expect(result).toEqual({
         user: mockUser,
@@ -232,6 +235,25 @@ describe('AuthService', () => {
         refreshToken: 'refresh-token',
         message: 'Registration successful',
       });
+    });
+
+    it('should register hotel owner successfully with SELLER role', async () => {
+      const sellerRegisterDto = { ...registerDto, role: UserRole.SELLER };
+      const sellerUser = { ...mockUser, roles: [UserRole.SELLER] };
+      
+      mockUsersService.create.mockResolvedValue(sellerUser);
+      mockJwtService.signAsync.mockResolvedValueOnce('access-token');
+      mockJwtService.signAsync.mockResolvedValueOnce('refresh-token');
+      mockConfigService.get.mockReturnValue('7d');
+      mockAuditService.log.mockResolvedValue(undefined);
+
+      const result = await service.register(sellerRegisterDto, ipAddress, userAgent);
+
+      expect(mockUsersService.create).toHaveBeenCalledWith({
+        ...sellerRegisterDto,
+        roles: [UserRole.SELLER],
+      });
+      expect(result.user.roles).toEqual([UserRole.SELLER]);
     });
 
     it('should throw ConflictException if user creation fails', async () => {

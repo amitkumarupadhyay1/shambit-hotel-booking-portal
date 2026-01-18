@@ -6,13 +6,20 @@ import { DatabaseConfig } from './config/database.config';
 import { AuthModule } from './modules/auth/auth.module';
 import { UsersModule } from './modules/users/users.module';
 import { AuditModule } from './modules/audit/audit.module';
+import { HotelsModule } from './modules/hotels/hotels.module';
+import { RoomsModule } from './modules/rooms/rooms.module';
+import { BookingsModule } from './modules/bookings/bookings.module';
+import { AdminHotelsModule } from './modules/admin-hotels/admin-hotels.module';
+import { AvailabilityModule } from './modules/availability/availability.module';
+import { SearchModule } from './modules/search/search.module';
+import { SellerDashboardModule } from './modules/seller-dashboard/seller-dashboard.module';
 
 @Module({
   imports: [
     // Configuration
     ConfigModule.forRoot({
       isGlobal: true,
-      envFilePath: '.env',
+      envFilePath: process.env.NODE_ENV === 'test' ? '.env.test' : '.env',
     }),
 
     // Database
@@ -32,6 +39,13 @@ import { AuditModule } from './modules/audit/audit.module';
     AuthModule,
     UsersModule,
     AuditModule,
+    HotelsModule,
+    RoomsModule,
+    BookingsModule,
+    AdminHotelsModule,
+    AvailabilityModule,
+    SearchModule,
+    SellerDashboardModule,
   ],
 })
-export class AppModule {}
+export class AppModule { }

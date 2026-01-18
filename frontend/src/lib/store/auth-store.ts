@@ -4,10 +4,10 @@ import { AuthState, User } from '@/types/auth';
 
 export const useAuthStore = create<AuthState>()(
     persist(
-        (set) => ({
+        (set, get) => ({
             user: null,
             isAuthenticated: false,
-            isLoading: true,
+            isLoading: false,
 
             setUser: (user: User | null) =>
                 set({

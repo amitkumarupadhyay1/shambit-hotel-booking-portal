@@ -27,7 +27,7 @@ describe('Users (e2e)', () => {
     name: 'Admin User',
     email: 'admin@example.com',
     password: 'Admin123!@#',
-    roles: [UserRole.ADMIN],
+    role: UserRole.ADMIN,
   };
 
   beforeAll(async () => {
@@ -74,14 +74,14 @@ describe('Users (e2e)', () => {
       .send(buyerUser);
     
     buyerToken = buyerResponse.body.accessToken;
-    buyerUserId = buyerResponse.body.user.id;
+    buyerUserId = buyerResponse.body.user!.id;
 
     const adminResponse = await request(app.getHttpServer())
       .post('/api/v1/auth/register')
       .send(adminUser);
-    
+
     adminToken = adminResponse.body.accessToken;
-    adminUserId = adminResponse.body.user.id;
+    adminUserId = adminResponse.body.user!.id;
   });
 
   afterAll(async () => {

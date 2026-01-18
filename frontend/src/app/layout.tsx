@@ -3,6 +3,8 @@ import { Inter, Geist_Mono, Playfair_Display } from "next/font/google";
 import Script from "next/script";
 import "./globals.css";
 import { Toaster } from 'sonner';
+import { ServiceWorkerRegistration } from '@/components/pwa/service-worker-registration';
+import { PWAInstallOverlay } from '@/components/pwa/pwa-install-overlay';
 
 const inter = Inter({
     variable: "--font-inter",
@@ -101,6 +103,17 @@ export const metadata: Metadata = {
         capable: true,
         statusBarStyle: "default",
         title: "Shambit",
+        startupImage: "/lotus-logo.png",
+    },
+    icons: {
+        icon: [
+            { url: '/logo.png', sizes: '192x192', type: 'image/png' },
+            { url: '/logo.png', sizes: '512x512', type: 'image/png' },
+        ],
+        apple: [
+            { url: '/logo.png', sizes: '180x180', type: 'image/png' },
+        ],
+        shortcut: '/logo.png',
     },
 };
 
@@ -117,7 +130,31 @@ export default function RootLayout({
                 {/* Preconnect to external domains */}
                 <link rel="preconnect" href="https://fonts.googleapis.com" />
                 <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
-                
+
+                {/* PWA Meta Tags */}
+                <meta name="application-name" content="Shambit" />
+                <meta name="apple-mobile-web-app-capable" content="yes" />
+                <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+                <meta name="apple-mobile-web-app-title" content="Shambit" />
+                <meta name="mobile-web-app-capable" content="yes" />
+                <meta name="msapplication-config" content="/browserconfig.xml" />
+                <meta name="msapplication-TileColor" content="#0F4C5C" />
+
+                {/* Apple Touch Icons */}
+                <link rel="apple-touch-icon" href="/logo.png" />
+                <link rel="apple-touch-icon" sizes="152x152" href="/logo.png" />
+                <link rel="apple-touch-icon" sizes="180x180" href="/logo.png" />
+                <link rel="apple-touch-icon" sizes="167x167" href="/logo.png" />
+
+                {/* Apple Splash Screens */}
+                <link rel="apple-touch-startup-image" href="/ramji.jpg" media="(device-width: 430px) and (device-height: 932px) and (-webkit-device-pixel-ratio: 3)" />
+                <link rel="apple-touch-startup-image" href="/ram mandir.jpg" media="(device-width: 393px) and (device-height: 852px) and (-webkit-device-pixel-ratio: 3)" />
+
+                {/* Favicon */}
+                <link rel="icon" type="image/png" sizes="32x32" href="/logo.png" />
+                <link rel="icon" type="image/png" sizes="16x16" href="/logo.png" />
+                <link rel="shortcut icon" href="/logo.png" />
+
                 {/* Google Analytics */}
                 <Script
                     strategy="afterInteractive"
@@ -142,7 +179,9 @@ export default function RootLayout({
             <body
                 className={`${inter.variable} ${playfair.variable} ${geistMono.variable} antialiased`}
             >
+                <ServiceWorkerRegistration />
                 {children}
+                <PWAInstallOverlay />
                 <Toaster richColors position="top-center" />
             </body>
         </html>

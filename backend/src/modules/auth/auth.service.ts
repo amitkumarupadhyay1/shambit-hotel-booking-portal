@@ -83,9 +83,11 @@ export class AuthService {
     try {
       // Determine role based on registration context
       let roles = [UserRole.BUYER]; // Default for customers
-      
+
       if (registerDto.role === UserRole.SELLER) {
         roles = [UserRole.SELLER];
+      } else if (registerDto.role === UserRole.ADMIN) {
+        roles = [UserRole.ADMIN];
       }
 
       const user = await this.usersService.create({

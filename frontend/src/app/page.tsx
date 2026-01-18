@@ -1,11 +1,8 @@
 import dynamic from 'next/dynamic';
 import { Header } from "@/components/layout/header";
 import { Hero } from "@/components/landing/hero";
-import { PromotionsBanner } from "@/components/landing/promotions-banner";
-import { FeaturedDeals } from "@/components/landing/featured-deals";
 import { Footer } from "@/components/layout/footer";
 import { OrganizationSchema, WebsiteSchema, LocalBusinessSchema } from "@/components/seo/structured-data";
-import { LiveActivity } from "@/components/landing/live-activity";
 
 // Lazy load below-the-fold components for better performance
 const PropertyTypes = dynamic(() => import("@/components/landing/property-types").then(mod => ({ default: mod.PropertyTypes })), {
@@ -15,10 +12,6 @@ const PropertyTypes = dynamic(() => import("@/components/landing/property-types"
 const FeaturedDestinations = dynamic(() => import("@/components/landing/featured-destinations").then(mod => ({ default: mod.FeaturedDestinations })), {
   loading: () => <div className="py-16 bg-white animate-pulse"><div className="max-w-7xl mx-auto px-4 h-64 bg-gray-100 rounded-xl" /></div>
 });
-
-const Benefits = dynamic(() => import("@/components/landing/benefits").then(mod => ({ default: mod.Benefits })));
-
-const Testimonials = dynamic(() => import("@/components/landing/testimonials").then(mod => ({ default: mod.Testimonials })));
 
 const CTABanner = dynamic(() => import("@/components/landing/cta-banner").then(mod => ({ default: mod.CTABanner })));
 
@@ -30,23 +23,18 @@ export default function Home() {
       <WebsiteSchema />
       <LocalBusinessSchema />
 
-      <main 
-        id="main-content" 
+      <main
+        id="main-content"
         className="min-h-screen bg-background font-sans text-foreground selection:bg-teal-100 selection:text-teal-900"
       >
         <Header />
         <Hero />
-        <PromotionsBanner />
-        <FeaturedDeals />
-        <PropertyTypes />
-        <FeaturedDestinations />
-        <Benefits />
-        <Testimonials />
-        <CTABanner />
+        <div className="space-y-12 pb-20">
+          <PropertyTypes />
+          <FeaturedDestinations />
+          <CTABanner />
+        </div>
         <Footer />
-        
-        {/* Live Booking Activity - Social Proof */}
-        <LiveActivity />
       </main>
     </>
   );

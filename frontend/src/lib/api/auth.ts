@@ -1,4 +1,4 @@
-import apiClient, { setAccessToken } from './client';
+import apiClient, { setAccessToken, checkAuthStatus } from './client';
 import {
     LoginCredentials,
     RegisterCredentials,
@@ -9,17 +9,26 @@ import {
 export const authApi = {
     // Login with email/password
     login: async (credentials: LoginCredentials): Promise<AuthResponse> => {
-        const { data } = await apiClient.post<AuthResponse>(
-            '/auth/login',
-            credentials
-        );
+        console.log('🔐 Attempting login for:', credentials.email);
         
-        // Store access token in memory
-        if (data.accessToken) {
-            setAccessToken(data.accessToken);
+        try {
+            const { data } = await apiClient.post<AuthResponse>(
+                '/auth/login',
+                credentials
+            );
+            
+            console.log('✅ Login successful for:', credentials.email);
+            
+            // Store access token in memory
+            if (data.accessToken) {
+                setAccessToken(data.accessToken);
+            }
+            
+            return data;
+        } catch (error) {
+            console.error('❌ Login failed for:', credentials.email, error);
+            throw error;
         }
-        
-        return data;
     },
 
     // Register new user
@@ -50,10 +59,9 @@ export const authApi = {
         return data;
     },
 
-    // Get current user profile
+    // Get current user profile - use singleton to prevent multiple calls
     getProfile: async (): Promise<User> => {
-        const { data } = await apiClient.get<User>('/auth/me');
-        return data;
+        return checkAuthStatus();
     },
 
     // Refresh token (handled automatically by interceptor)

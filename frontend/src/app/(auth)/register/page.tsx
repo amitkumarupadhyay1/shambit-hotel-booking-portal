@@ -9,6 +9,7 @@ import { Loader2, Building2, User, CheckCircle, Star, Users, TrendingUp } from '
 
 import { useAuth } from '@/hooks/use-auth';
 import { registerSchema, RegisterInput } from '@/lib/validations/auth';
+import { UserRole } from '@/types/auth';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -35,7 +36,7 @@ export default function RegisterPage() {
             // Add role based on registration type
             const registrationData = {
                 ...data,
-                role: isOwner ? 'SELLER' : 'BUYER'
+                role: isOwner ? UserRole.SELLER : UserRole.BUYER
             };
             await registerUser(registrationData);
         } catch (error) {

@@ -13,6 +13,7 @@ import { User } from '../../users/entities/user.entity';
 import { Room } from '../../rooms/entities/room.entity';
 
 export enum HotelStatus {
+  DRAFT = 'DRAFT',
   PENDING = 'PENDING',
   APPROVED = 'APPROVED',
   SUSPENDED = 'SUSPENDED',
@@ -29,14 +30,17 @@ export enum HotelType {
 
 @Entity('hotels')
 @Index(['status'])
-@Index(['city'])
-@Index(['hotelType'])
+@Index(['city', 'status'])
+@Index(['hotelType', 'city'])
 export class Hotel {
   @PrimaryGeneratedColumn('uuid')
   id: string;
 
   @Column({ type: 'varchar', length: 255 })
   name: string;
+
+  @Column({ type: 'varchar', length: 255, unique: true, nullable: true })
+  slug: string;
 
   @Column({ type: 'text', nullable: true })
   description: string;

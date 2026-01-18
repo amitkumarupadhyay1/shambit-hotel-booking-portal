@@ -67,7 +67,7 @@ describe('Auth (e2e)', () => {
   });
 
   describe('/auth/register (POST)', () => {
-    it('should register a new user successfully', () => {
+    it('should register a new customer successfully with BUYER role', () => {
       return request(app.getHttpServer())
         .post('/api/v1/auth/register')
         .send(testUser)
@@ -94,6 +94,28 @@ describe('Auth (e2e)', () => {
             expect(refreshTokenCookie).toBeDefined();
             refreshCookie = refreshTokenCookie || '';
           }
+        });
+    });
+
+    it('should register a hotel owner successfully with SELLER role', () => {
+      const hotelOwner = {
+        name: 'Hotel Owner',
+        email: 'owner@example.com',
+        password: 'Owner123!@#',
+        phone: '+1234567891',
+        role: 'SELLER',
+      };
+
+      return request(app.getHttpServer())
+        .post('/api/v1/auth/register')
+        .send(hotelOwner)
+        .expect(201)
+        .expect((res) => {
+          expect(res.body).toHaveProperty('user');
+          expect(res.body).toHaveProperty('accessToken');
+          expect(res.body.user.email).toBe(hotelOwner.email);
+          expect(res.body.user.roles).toContain('SELLER');
+          expect(res.body.user).not.toHaveProperty('password');
         });
     });
 
@@ -130,7 +152,8 @@ describe('Auth (e2e)', () => {
         })
         .expect(400)
         .expect((res) => {
-          expect(res.body.message).toContain('Password');
+          expect(Array.isArray(res.body.message)).toBe(true);
+          expect(res.body.message.some((msg: string) => msg.includes('Password') || msg.includes('password'))).toBe(true);
         });
     });
 
@@ -278,11 +301,11 @@ describe('Auth (e2e)', () => {
           // Check that refresh token cookie is cleared
           const cookies = res.headers['set-cookie'];
           if (cookies && Array.isArray(cookies)) {
-            const refreshTokenCookie = cookies.find((cookie: string) => 
+            const refreshTokenCookie = cookies.find((cookie: string) =>
               cookie.startsWith('refreshToken=')
             );
             if (refreshTokenCookie) {
-              expect(refreshTokenCookie).toContain('Max-Age=0');
+              expect(refreshTokenCookie).toContain('Expires=Thu, 01 Jan 1970 00:00:00 GMT');
             }
           }
         });

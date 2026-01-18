@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { UserRole } from '@/types/auth';
 
 export const loginSchema = z.object({
     email: z
@@ -31,7 +32,7 @@ export const registerSchema = z.object({
         .min(8, 'Password must be at least 8 characters')
         .max(128, 'Password too long')
         .regex(
-            /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]/,
+            /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]+$/,
             'Password must contain uppercase, lowercase, number, and special character'
         ),
     phone: z
@@ -39,6 +40,7 @@ export const registerSchema = z.object({
         .regex(/^\+?[\d\s\-\(\)]+$/, 'Invalid phone number')
         .optional()
         .or(z.literal('')),
+    role: z.nativeEnum(UserRole).optional(),
 });
 
 export type LoginInput = z.infer<typeof loginSchema>;

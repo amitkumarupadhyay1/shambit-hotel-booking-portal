@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Menu, User, Globe, Smartphone, Crown, Briefcase, Home } from "lucide-react";
 import { useState, useEffect } from "react";
 import { cn } from "@/lib/utils";
+import { InstallButton } from "@/components/pwa/install-button";
 
 export function Header() {
     const [isScrolled, setIsScrolled] = useState(false);
@@ -113,6 +114,13 @@ export function Header() {
                             <Smartphone className="w-4 h-4" aria-hidden="true" />
                             <span className="text-xs font-bold">App</span>
                         </Button>
+
+                        {/* PWA Install Button */}
+                        <InstallButton 
+                            variant="ghost" 
+                            size="sm" 
+                            className="text-gray-600 hover:text-blue-700 hover:bg-blue-50 min-h-[44px] touch-manipulation"
+                        />
 
                         {/* Login Button */}
                         <Link href="/login">
