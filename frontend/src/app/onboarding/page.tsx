@@ -84,11 +84,14 @@ export default function OnboardingPage() {
         name: "rooms"
     });
 
-    // Check authentication and role AFTER hooks are initialized
+    // Enhanced authentication and role checking with better error handling
     if (isLoading) {
         return (
-            <div className="min-h-screen flex items-center justify-center">
-                <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-orange-600"></div>
+            <div className="min-h-screen flex items-center justify-center bg-slate-50">
+                <div className="text-center">
+                    <div className="animate-spin rounded-full h-16 w-16 border-b-2 border-orange-600 mx-auto mb-4"></div>
+                    <p className="text-slate-600">Verifying your session...</p>
+                </div>
             </div>
         );
     }
@@ -99,12 +102,28 @@ export default function OnboardingPage() {
                 <Card className="w-full max-w-md">
                     <CardHeader className="text-center">
                         <CardTitle>Access Denied</CardTitle>
-                        <CardDescription>You need to be a registered hotel partner to access this page</CardDescription>
+                        <CardDescription>
+                            {!isAuthenticated 
+                                ? "Please log in to access the onboarding process" 
+                                : "You need to be a registered hotel partner to access this page"
+                            }
+                        </CardDescription>
                     </CardHeader>
-                    <CardContent className="text-center">
-                        <Button onClick={() => router.push('/register?type=owner')}>
-                            Become a Partner
-                        </Button>
+                    <CardContent className="text-center space-y-3">
+                        {!isAuthenticated ? (
+                            <>
+                                <Button onClick={() => router.push('/login?redirect=/onboarding')} className="w-full">
+                                    Log In
+                                </Button>
+                                <Button variant="outline" onClick={() => router.push('/register?type=owner')} className="w-full">
+                                    Register as Hotel Partner
+                                </Button>
+                            </>
+                        ) : (
+                            <Button onClick={() => router.push('/register?type=owner')}>
+                                Become a Partner
+                            </Button>
+                        )}
                     </CardContent>
                 </Card>
             </div>

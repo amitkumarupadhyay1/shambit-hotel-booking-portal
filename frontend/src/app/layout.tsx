@@ -181,7 +181,6 @@ export default function RootLayout({
             >
                 <ServiceWorkerRegistration />
                 {children}
-                <PWAInstallOverlay />
                 <Toaster richColors position="top-center" />
             </body>
         </html>

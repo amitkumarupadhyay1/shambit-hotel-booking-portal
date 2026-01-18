@@ -3,6 +3,7 @@ import { Header } from "@/components/layout/header";
 import { Hero } from "@/components/landing/hero";
 import { Footer } from "@/components/layout/footer";
 import { OrganizationSchema, WebsiteSchema, LocalBusinessSchema } from "@/components/seo/structured-data";
+import { PWAInstallOverlay } from '@/components/pwa/pwa-install-overlay';
 
 // Lazy load below-the-fold components for better performance
 const PropertyTypes = dynamic(() => import("@/components/landing/property-types").then(mod => ({ default: mod.PropertyTypes })), {
@@ -35,6 +36,7 @@ export default function Home() {
           <CTABanner />
         </div>
         <Footer />
+        <PWAInstallOverlay />
       </main>
     </>
   );

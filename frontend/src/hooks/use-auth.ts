@@ -4,56 +4,85 @@ import { useEffect, useState, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuthStore } from '@/lib/store/auth-store';
 import { authApi } from '@/lib/api/auth';
-import { setAccessToken } from '@/lib/api/client';
+import { setAccessToken, getAccessToken } from '@/lib/api/client';
 import { toast } from 'sonner';
 import { LoginInput, RegisterInput } from '@/lib/validations/auth';
 import { UserRole } from '@/types/auth';
 
-// Global flag to prevent multiple auth checks
+// Global singleton auth state management
+let globalAuthInitialized = false;
 let globalAuthCheckInProgress = false;
+let globalAuthPromise: Promise<void> | null = null;
 
 export function useAuth() {
     const router = useRouter();
     const { user, isAuthenticated, isLoading, setUser, setLoading, logout: clearAuth } = useAuthStore();
-    const [hasInitialized, setHasInitialized] = useState(false);
+    const [hasInitialized, setHasInitialized] = useState(globalAuthInitialized);
 
-    // Memoized auth check function
-    const checkAuthOnce = useCallback(async () => {
-        // Prevent multiple simultaneous auth checks globally
-        if (globalAuthCheckInProgress) {
-            console.log('🔄 Auth check already in progress globally, skipping...');
+    // Enhanced auth check with proper singleton behavior
+    const initializeAuth = useCallback(async (): Promise<void> => {
+        // If already initialized globally, just update local state
+        if (globalAuthInitialized) {
+            setHasInitialized(true);
             return;
         }
 
-        // Only check if we have a persisted user and haven't initialized yet
-        if (!hasInitialized && user && isAuthenticated) {
-            globalAuthCheckInProgress = true;
-            
+        // If initialization is in progress, wait for it
+        if (globalAuthCheckInProgress && globalAuthPromise) {
+            console.log('🔄 Auth initialization already in progress, waiting...');
+            await globalAuthPromise;
+            setHasInitialized(true);
+            return;
+        }
+
+        // Start initialization
+        globalAuthCheckInProgress = true;
+        globalAuthPromise = performAuthInitialization();
+
+        try {
+            await globalAuthPromise;
+        } finally {
+            globalAuthInitialized = true;
+            globalAuthCheckInProgress = false;
+            globalAuthPromise = null;
+            setHasInitialized(true);
+        }
+    }, [setUser, setLoading]);
+
+    const performAuthInitialization = async (): Promise<void> => {
+        // Check if we have a stored token
+        const storedToken = getAccessToken();
+        
+        // If we have persisted user but no token, try to validate session
+        if (user && isAuthenticated && storedToken) {
             try {
                 setLoading(true);
-                console.log('🔍 Validating persisted session...');
+                console.log('🔍 Validating persisted session with stored token...');
                 const userData = await authApi.getProfile();
                 setUser(userData);
                 console.log('✅ Session validation successful');
             } catch (error) {
                 console.log('❌ Session validation failed, clearing auth state');
+                setAccessToken(null);
                 setUser(null);
             } finally {
                 setLoading(false);
-                setHasInitialized(true);
-                globalAuthCheckInProgress = false;
             }
-        } else if (!hasInitialized) {
-            // No persisted user, mark as initialized
-            setHasInitialized(true);
-            console.log('ℹ️ No persisted session found');
+        } else if (user && isAuthenticated && !storedToken) {
+            // User state exists but no token - clear invalid state
+            console.log('⚠️ User state exists but no token found, clearing auth state');
+            setUser(null);
+        } else {
+            // No persisted user or clean state
+            console.log('ℹ️ No persisted session found or clean state');
+            setLoading(false);
         }
-    }, [hasInitialized, user, isAuthenticated, setUser, setLoading]);
+    };
 
-    // Check authentication status on mount - only once per app lifecycle
+    // Initialize auth on mount
     useEffect(() => {
-        checkAuthOnce();
-    }, [checkAuthOnce]);
+        initializeAuth();
+    }, [initializeAuth]);
 
     const login = async (credentials: LoginInput) => {
         try {
@@ -63,7 +92,7 @@ export function useAuth() {
             
             console.log('✅ Login API call successful, setting user state...');
             if (response.accessToken) {
-                setAccessToken(response.accessToken); // ✅ REQUIRED
+                setAccessToken(response.accessToken);
             }
             setUser(response.user);
             toast.success(response.message || 'Login successful!');
@@ -74,7 +103,6 @@ export function useAuth() {
             } else if (response.user.roles.includes(UserRole.SELLER)) {
                 router.push('/seller/dashboard');
             } else {
-                // Customers go to their bookings or main site
                 router.push('/my-bookings');
             }
         } catch (error: unknown) {
@@ -93,18 +121,17 @@ export function useAuth() {
             
             console.log('✅ Registration API call successful, setting user state...');
             if (response.accessToken) {
-                setAccessToken(response.accessToken); // ✅ REQUIRED
+                setAccessToken(response.accessToken);
             }
             setUser(response.user);
             toast.success(response.message || 'Registration successful!');
             
             // Route based on user role after registration
             if (response.user.roles.includes(UserRole.SELLER)) {
-                router.push('/onboarding'); // Hotel owners go to property setup
+                router.push('/onboarding');
             } else if (response.user.roles.includes(UserRole.ADMIN)) {
                 router.push('/admin');
             } else {
-                // Customers go to main site or their bookings
                 router.push('/');
             }
         } catch (error: unknown) {
@@ -120,7 +147,7 @@ export function useAuth() {
             setLoading(true);
             const response = await authApi.googleAuth(googleToken);
             if (response.accessToken) {
-                setAccessToken(response.accessToken); // ✅ REQUIRED
+                setAccessToken(response.accessToken);
             }
             setUser(response.user);
             toast.success(response.message || 'Google login successful!');
@@ -143,14 +170,18 @@ export function useAuth() {
         try {
             await authApi.logout();
             clearAuth();
-            setHasInitialized(false); // Reset initialization flag
-            globalAuthCheckInProgress = false; // Reset global flag
+            // Reset global state
+            globalAuthInitialized = false;
+            globalAuthCheckInProgress = false;
+            globalAuthPromise = null;
             toast.success('Logged out successfully');
             router.push('/login');
         } catch (_error) {
             clearAuth();
-            setHasInitialized(false); // Reset initialization flag
-            globalAuthCheckInProgress = false; // Reset global flag
+            // Reset global state
+            globalAuthInitialized = false;
+            globalAuthCheckInProgress = false;
+            globalAuthPromise = null;
             router.push('/login');
         }
     };
@@ -162,7 +193,7 @@ export function useAuth() {
     return {
         user,
         isAuthenticated,
-        isLoading,
+        isLoading: isLoading || !hasInitialized, // Include initialization state
         login,
         register,
         loginWithGoogle,

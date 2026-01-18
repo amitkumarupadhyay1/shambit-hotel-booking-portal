@@ -128,4 +128,52 @@
   body {
     @apply bg-background text-foreground;
   }
+
+  /* Mobile-first improvements */
+  @media (max-width: 768px) {
+    /* Ensure touch targets are at least 44px */
+    button, a, [role="button"] {
+      min-height: 44px;
+      min-width: 44px;
+    }
+
+    /* Smooth scrolling for mobile */
+    html {
+      scroll-behavior: smooth;
+      -webkit-overflow-scrolling: touch;
+    }
+
+    /* Prevent zoom on input focus */
+    input, select, textarea {
+      font-size: 16px;
+    }
+
+    /* Better mobile menu animations */
+    .mobile-menu-enter {
+      transform: translateX(100%);
+    }
+    
+    .mobile-menu-enter-active {
+      transform: translateX(0);
+      transition: transform 300ms ease-out;
+    }
+    
+    .mobile-menu-exit {
+      transform: translateX(0);
+    }
+    
+    .mobile-menu-exit-active {
+      transform: translateX(100%);
+      transition: transform 300ms ease-in;
+    }
+  }
+
+  /* PWA specific styles */
+  @media (display-mode: standalone) {
+    /* Hide browser UI elements when in PWA mode */
+    body {
+      padding-top: env(safe-area-inset-top);
+      padding-bottom: env(safe-area-inset-bottom);
+    }
+  }
 }

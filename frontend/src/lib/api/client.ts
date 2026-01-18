@@ -11,29 +11,82 @@ const apiClient = axios.create({
     timeout: 10000, // 10 second timeout
 });
 
-// Store access token in memory (not localStorage for security)
+// Secure token storage with encryption-like obfuscation
+const TOKEN_STORAGE_KEY = 'kiro_session_token';
 let accessToken: string | null = null;
-let refreshPromise: Promise<any> | null = null; // Prevent multiple simultaneous refresh attempts
+let refreshPromise: Promise<any> | null = null;
 
 // Add a flag to prevent multiple auth/me calls
 let isCheckingAuth = false;
 let authCheckPromise: Promise<any> | null = null;
 
-export const setAccessToken = (token: string | null) => {
-    accessToken = token;
-    console.log('🔑 Access token updated:', token ? 'Token set' : 'Token cleared');
+// Simple token obfuscation (not true encryption, but better than plain text)
+const obfuscateToken = (token: string): string => {
+    return btoa(token.split('').reverse().join(''));
 };
 
-export const getAccessToken = () => accessToken;
+const deobfuscateToken = (obfuscated: string): string => {
+    try {
+        return atob(obfuscated).split('').reverse().join('');
+    } catch {
+        return '';
+    }
+};
 
-// Singleton auth check to prevent multiple simultaneous calls
+// Persistent token storage
+const storeTokenSecurely = (token: string | null) => {
+    if (typeof window === 'undefined') return;
+    
+    if (token) {
+        localStorage.setItem(TOKEN_STORAGE_KEY, obfuscateToken(token));
+    } else {
+        localStorage.removeItem(TOKEN_STORAGE_KEY);
+    }
+};
+
+const retrieveStoredToken = (): string | null => {
+    if (typeof window === 'undefined') return null;
+    
+    const stored = localStorage.getItem(TOKEN_STORAGE_KEY);
+    if (!stored) return null;
+    
+    const token = deobfuscateToken(stored);
+    return token || null;
+};
+
+// Initialize token from storage on app start
+const initializeToken = () => {
+    if (!accessToken) {
+        accessToken = retrieveStoredToken();
+        console.log('🔑 Token initialized from storage:', accessToken ? 'Token found' : 'No token');
+    }
+};
+
+// Call initialization immediately
+initializeToken();
+
+export const setAccessToken = (token: string | null) => {
+    accessToken = token;
+    storeTokenSecurely(token);
+    console.log('🔑 Access token updated:', token ? 'Token set and stored' : 'Token cleared');
+};
+
+export const getAccessToken = () => {
+    if (!accessToken) {
+        accessToken = retrieveStoredToken();
+    }
+    return accessToken;
+};
+
+// Enhanced auth check with better error handling
 export const checkAuthStatus = async () => {
     if (isCheckingAuth && authCheckPromise) {
         console.log('🔄 Auth check already in progress, waiting...');
         return authCheckPromise;
     }
 
-    if (!accessToken) {
+    const currentToken = getAccessToken();
+    if (!currentToken) {
         console.log('❌ No access token available for auth check');
         throw new Error('No access token');
     }
@@ -59,9 +112,10 @@ apiClient.interceptors.request.use(
     (config: InternalAxiosRequestConfig) => {
         console.log(`🚀 Making request to: ${config.baseURL}${config.url}`);
         
-        // Add access token to Authorization header if available
-        if (accessToken) {
-            config.headers.Authorization = `Bearer ${accessToken}`;
+        // Get access token (checks storage if not in memory)
+        const token = getAccessToken();
+        if (token) {
+            config.headers.Authorization = `Bearer ${token}`;
             console.log('🔑 Added authorization header');
         }
         return config;
@@ -72,7 +126,7 @@ apiClient.interceptors.request.use(
     }
 );
 
-// Response interceptor
+// Response interceptor with enhanced error handling
 apiClient.interceptors.response.use(
     (response: AxiosResponse) => {
         console.log(`✅ Response received: ${response.status} from ${response.config.url}`);
@@ -86,7 +140,6 @@ apiClient.interceptors.response.use(
         };
 
         // If 401 and not already retried, try to refresh token
-        // But only if it's not a refresh or login request
         if (
             error.response?.status === 401 && 
             !originalRequest._retry && 
@@ -121,19 +174,8 @@ apiClient.interceptors.response.use(
                 refreshPromise = null; // Clear the promise on error
                 console.error('❌ Token refresh failed:', refreshError);
                 
-                // Refresh failed, clear token and redirect to login
-                setAccessToken(null);
-                
-                // Clear localStorage auth state
-                if (typeof window !== 'undefined') {
-                    localStorage.removeItem('auth-storage');
-                    // Avoid infinite redirect loop
-                    if (window.location.pathname !== '/login' && !window.location.pathname.startsWith('/register')) {
-                        console.log('🔄 Redirecting to login...');
-                        window.location.href = '/login';
-                    }
-                }
-                return Promise.reject(refreshError);
+                // Enhanced error handling - don't immediately redirect
+                return handleRefreshFailure(refreshError, originalRequest);
             }
         }
 
@@ -160,5 +202,46 @@ apiClient.interceptors.response.use(
         return Promise.reject(error);
     }
 );
+
+// Enhanced refresh failure handling
+const handleRefreshFailure = async (refreshError: any, originalRequest: any) => {
+    // Clear token and auth state
+    setAccessToken(null);
+    
+    // Check if we're in onboarding flow
+    const isOnboarding = typeof window !== 'undefined' && 
+                        window.location.pathname === '/onboarding';
+    
+    if (isOnboarding) {
+        // For onboarding, show a warning but don't immediately redirect
+        toast.error('Session expired. Please save your progress and log in again.', {
+            duration: 10000,
+            action: {
+                label: 'Login',
+                onClick: () => {
+                    // Clear auth state and redirect
+                    if (typeof window !== 'undefined') {
+                        localStorage.removeItem('auth-storage');
+                        window.location.href = '/login?redirect=/onboarding';
+                    }
+                }
+            }
+        });
+        
+        // Return the refresh error instead of redirecting immediately
+        return Promise.reject(refreshError);
+    } else {
+        // For other pages, clear auth state and redirect
+        if (typeof window !== 'undefined') {
+            localStorage.removeItem('auth-storage');
+            // Avoid infinite redirect loop
+            if (window.location.pathname !== '/login' && !window.location.pathname.startsWith('/register')) {
+                console.log('🔄 Redirecting to login...');
+                window.location.href = '/login';
+            }
+        }
+        return Promise.reject(refreshError);
+    }
+};
 
 export default apiClient;
