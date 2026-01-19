@@ -1,6 +1,6 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { INestApplication } from '@nestjs/common';
-import * as request from 'supertest';
+import request from 'supertest';
 import { AppModule } from '../../src/app.module';
 import { getRepositoryToken } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
@@ -120,9 +120,12 @@ describe('Search (e2e)', () => {
         .expect(200)
         .expect((res) => {
           expect(res.body.data).toHaveLength(1);
-          expect(res.body.data[0].id).toBe(testHotel.id);
+          expect(res.body.data[0].hotelId).toBe(testHotel.id);
           expect(res.body.data[0].name).toBe('Test Hotel');
-          expect(res.body.data[0].availableRooms).toBe(1);
+          expect(res.body.data[0].city).toBe('Test City');
+          expect(res.body.data[0].hotelType).toBe(HotelType.HOTEL);
+          expect(res.body.data[0].minBasePrice).toBe(1000);
+          expect(res.body.data[0].availabilityStatus).toBe('AVAILABLE');
           expect(res.body.pagination.total).toBe(1);
         });
     });
@@ -172,7 +175,7 @@ describe('Search (e2e)', () => {
         .get('/hotels/search')
         .query({
           city: 'Test City',
-          // Missing required dates and guests
+          // Missing required dates
         })
         .expect(400);
     });
@@ -188,16 +191,32 @@ describe('Search (e2e)', () => {
         })
         .expect(400);
     });
+
+    it('should validate checkout date after checkin date', () => {
+      const today = new Date();
+      const yesterday = new Date();
+      yesterday.setDate(today.getDate() - 1);
+
+      return request(app.getHttpServer())
+        .get('/hotels/search')
+        .query({
+          city: 'Test City',
+          checkInDate: today.toISOString().split('T')[0],
+          checkOutDate: yesterday.toISOString().split('T')[0],
+          guests: 2,
+        })
+        .expect(400);
+    });
   });
 
-  describe('/hotels/:id/availability (GET)', () => {
+  describe('/search/hotels/:id/availability (GET)', () => {
     it('should return hotel details with room availability', () => {
       const today = new Date();
       const tomorrow = new Date();
       tomorrow.setDate(today.getDate() + 1);
 
       return request(app.getHttpServer())
-        .get(`/hotels/${testHotel.id}/availability`)
+        .get(`/search/hotels/${testHotel.id}/availability`)
         .query({
           checkInDate: today.toISOString().split('T')[0],
           checkOutDate: tomorrow.toISOString().split('T')[0],
@@ -216,7 +235,7 @@ describe('Search (e2e)', () => {
 
     it('should return hotel details without availability check', () => {
       return request(app.getHttpServer())
-        .get(`/hotels/${testHotel.id}/availability`)
+        .get(`/search/hotels/${testHotel.id}/availability`)
         .expect(200)
         .expect((res) => {
           expect(res.body.id).toBe(testHotel.id);
@@ -228,7 +247,7 @@ describe('Search (e2e)', () => {
 
     it('should return 404 for non-existent hotel', () => {
       return request(app.getHttpServer())
-        .get('/hotels/non-existent-id/availability')
+        .get('/search/hotels/non-existent-id/availability')
         .expect(404);
     });
 
@@ -249,7 +268,7 @@ describe('Search (e2e)', () => {
       });
 
       await request(app.getHttpServer())
-        .get(`/hotels/${draftHotel.id}/availability`)
+        .get(`/search/hotels/${draftHotel.id}/availability`)
         .expect(404);
 
       await hotelRepository.delete(draftHotel.id);

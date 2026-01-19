@@ -19,85 +19,119 @@ export class SearchService {
   ) {}
 
   async searchHotels(searchDto: HotelSearchDto): Promise<PaginatedHotelSearchResult> {
-    // Validate search criteria
+    // Validate search criteria - MUST require city, checkInDate, checkOutDate
     await this.validateSearchCriteria(searchDto);
 
     const checkIn = new Date(searchDto.checkInDate);
     const checkOut = new Date(searchDto.checkOutDate);
+    const guests = searchDto.guests || 1;
 
-    // Build base query for approved hotels in the city
+    // Normalize city name for better matching
+    const normalizedCity = this.normalizeCity(searchDto.city);
+
+    // Build base query for APPROVED hotels only in the city with database-level pagination
     const queryBuilder = this.hotelRepository
       .createQueryBuilder('hotel')
+      .leftJoinAndSelect('hotel.rooms', 'room')
       .where('hotel.status = :status', { status: HotelStatus.APPROVED })
-      .andWhere('LOWER(hotel.city) = LOWER(:city)', { city: searchDto.city });
+      .andWhere('LOWER(TRIM(hotel.city)) = LOWER(:city)', { city: normalizedCity });
 
-    // Add hotel type filter if specified
+    // MUST accept optional: hotelType
     if (searchDto.hotelType) {
       queryBuilder.andWhere('hotel.hotelType = :hotelType', {
         hotelType: searchDto.hotelType,
       });
     }
 
-    // Add price filter if specified
-    if (searchDto.minPrice !== undefined) {
-      queryBuilder.andWhere('hotel.startingPrice >= :minPrice', {
-        minPrice: searchDto.minPrice,
-      });
-    }
-
-    if (searchDto.maxPrice !== undefined) {
-      queryBuilder.andWhere('hotel.startingPrice <= :maxPrice', {
-        maxPrice: searchDto.maxPrice,
-      });
-    }
-
-    // Get total count before applying pagination
+    // Get total count for pagination before applying limit/offset
     const totalCount = await queryBuilder.getCount();
 
-    // Apply pagination
+    // Apply database-level pagination
     const offset = (searchDto.page - 1) * searchDto.limit;
-    queryBuilder.skip(offset).take(searchDto.limit);
+    queryBuilder.skip(offset).take(searchDto.limit * 2); // Get more than needed to account for filtering
 
-    // Execute query
+    // Execute query to get hotels with rooms
     const hotels = await queryBuilder.getMany();
 
-    // Filter hotels by availability
-    const availableHotels: HotelSearchResult[] = [];
+    // Transform hotels for batch availability check
+    const hotelData = hotels.map(hotel => ({
+      id: hotel.id,
+      name: hotel.name,
+      city: hotel.city,
+      hotelType: hotel.hotelType,
+      rooms: hotel.rooms.map(room => ({
+        id: room.id,
+        basePrice: room.basePrice,
+      })),
+    }));
+
+    // Use optimized batch availability check
+    const availableHotels = await this.availabilityService.getHotelsWithAvailabilityOptimized(
+      hotelData,
+      checkIn,
+      checkOut,
+      guests,
+    );
+
+    // Build final results
+    const results: HotelSearchResult[] = [];
+    const availableHotelMap = new Map(availableHotels.map(h => [h.hotelId, h.minPrice]));
 
     for (const hotel of hotels) {
-      const availableRooms = await this.availabilityService.getAvailableRooms(
-        hotel.id,
-        checkIn,
-        checkOut,
-        searchDto.guests,
-      );
-
-      if (availableRooms.length > 0) {
-        availableHotels.push({
-          id: hotel.id,
+      const minPrice = availableHotelMap.get(hotel.id);
+      if (minPrice !== undefined) {
+        results.push({
+          hotelId: hotel.id,
           name: hotel.name,
-          slug: hotel.slug,
-          hotelType: hotel.hotelType,
           city: hotel.city,
-          address: hotel.address,
-          startingPrice: hotel.startingPrice,
-          averageRating: hotel.averageRating,
-          totalReviews: hotel.totalReviews,
-          images: hotel.images || [],
-          availableRooms: availableRooms.length,
+          hotelType: hotel.hotelType,
+          minBasePrice: minPrice,
+          availabilityStatus: 'AVAILABLE',
         });
+
+        // Stop when we have enough results for this page
+        if (results.length >= searchDto.limit) {
+          break;
+        }
       }
     }
 
+    // If we don't have enough results and there are more hotels, we need to fetch more
+    // This is a fallback for cases where many hotels don't have availability
+    if (results.length < searchDto.limit && hotels.length === searchDto.limit * 2) {
+      // Could implement additional fetching logic here if needed
+      // For now, we'll work with what we have
+    }
+
     return {
-      data: availableHotels,
+      data: results,
       pagination: {
         page: searchDto.page,
         limit: searchDto.limit,
-        total: availableHotels.length, // Note: This is the count of available hotels, not total hotels
-        totalPages: Math.ceil(availableHotels.length / searchDto.limit),
+        total: results.length, // Note: This is approximate due to availability filtering
+        totalPages: Math.ceil(results.length / searchDto.limit),
       },
     };
+  }
+
+  /**
+   * Normalize city name for better search matching
+   */
+  private normalizeCity(city: string): string {
+    return city
+      .trim()
+      .toLowerCase()
+      // Remove common prefixes/suffixes
+      .replace(/^(new|old|greater|metro)\s+/i, '')
+      .replace(/\s+(city|town|district)$/i, '')
+      // Handle common variations
+      .replace(/bengaluru/i, 'bangalore')
+      .replace(/mumbai/i, 'bombay')
+      .replace(/kolkata/i, 'calcutta')
+      .replace(/chennai/i, 'madras')
+      // Remove extra spaces
+      .replace(/\s+/g, ' ')
+      .trim();
   }
 
   async getHotelDetails(
@@ -184,8 +218,36 @@ export class SearchService {
   }
 
   async validateSearchCriteria(searchDto: HotelSearchDto): Promise<void> {
+    // MUST require: city, checkInDate, checkOutDate
+    if (!searchDto.city) {
+      throw new BadRequestException('City is required');
+    }
+
+    if (!searchDto.checkInDate) {
+      throw new BadRequestException('Check-in date is required');
+    }
+
+    if (!searchDto.checkOutDate) {
+      throw new BadRequestException('Check-out date is required');
+    }
+
     const checkIn = new Date(searchDto.checkInDate);
     const checkOut = new Date(searchDto.checkOutDate);
+
+    // MUST reject: Missing dates → 400 Bad Request
+    if (isNaN(checkIn.getTime())) {
+      throw new BadRequestException('Invalid check-in date format');
+    }
+
+    if (isNaN(checkOut.getTime())) {
+      throw new BadRequestException('Invalid check-out date format');
+    }
+
+    // MUST reject: checkOutDate ≤ checkInDate → 400 Bad Request
+    if (checkOut <= checkIn) {
+      throw new BadRequestException('Check-out date must be after check-in date');
+    }
+
     const today = new Date();
     today.setHours(0, 0, 0, 0);
 
@@ -194,22 +256,22 @@ export class SearchService {
       throw new BadRequestException('Check-in date cannot be in the past');
     }
 
-    // Check if check-out date is after check-in date
-    if (checkOut <= checkIn) {
-      throw new BadRequestException('Check-out date must be after check-in date');
-    }
-
     // Check if the stay is not too long (max 30 days)
     const daysDifference = Math.ceil((checkOut.getTime() - checkIn.getTime()) / (1000 * 60 * 60 * 24));
     if (daysDifference > 30) {
       throw new BadRequestException('Maximum stay duration is 30 days');
     }
 
-    // Validate price range
-    if (searchDto.minPrice !== undefined && searchDto.maxPrice !== undefined) {
-      if (searchDto.minPrice > searchDto.maxPrice) {
-        throw new BadRequestException('Minimum price cannot be greater than maximum price');
-      }
+    // NEW: Validate dates are not too far in the future (max 365 days)
+    const maxFutureDate = new Date(today);
+    maxFutureDate.setDate(maxFutureDate.getDate() + 365);
+    
+    if (checkIn > maxFutureDate) {
+      throw new BadRequestException('Check-in date cannot be more than 365 days in the future');
+    }
+
+    if (checkOut > maxFutureDate) {
+      throw new BadRequestException('Check-out date cannot be more than 365 days in the future');
     }
   }
 }

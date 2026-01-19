@@ -13,7 +13,6 @@ import {
 import { HotelsService } from './hotels.service';
 import { CreateHotelDto } from './dto/create-hotel.dto';
 import { UpdateHotelDto } from './dto/update-hotel.dto';
-import { CreateHotelOnboardingDto } from './dto/create-hotel-onboarding.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
 import { Roles } from '../auth/decorators/roles.decorator';
@@ -30,12 +29,8 @@ export class HotelsController {
     return this.hotelsService.create(createHotelDto, req.user.id);
   }
 
-  @Post('onboarding')
-  @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles(UserRole.SELLER)
-  onboard(@Body() dto: CreateHotelOnboardingDto, @Request() req) {
-    return this.hotelsService.onboard(dto, req.user.id);
-  }
+  // Note: Enhanced onboarding will be implemented in future tasks
+  // @Post('onboarding') - Removed old onboarding endpoint
 
   @Get()
   findAll(

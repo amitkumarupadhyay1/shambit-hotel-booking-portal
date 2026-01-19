@@ -96,7 +96,7 @@ export function Header() {
 
                         {/* Desktop Navigation */}
                         <nav 
-                            className="hidden md:flex items-center gap-4 lg:gap-6"
+                            className="hidden lg:flex items-center gap-4 lg:gap-6"
                             role="navigation"
                             aria-label="Main navigation"
                         >
@@ -176,7 +176,7 @@ export function Header() {
                         {/* Mobile Menu Trigger */}
                         <button 
                             onClick={toggleMobileMenu}
-                            className="md:hidden p-2 text-gray-700 hover:bg-gray-100 rounded-md min-h-[44px] min-w-[44px] flex items-center justify-center focus:outline-none focus:ring-2 focus:ring-blue-500 touch-manipulation"
+                            className="lg:hidden p-2 text-gray-700 hover:bg-gray-100 rounded-md min-h-[44px] min-w-[44px] flex items-center justify-center focus:outline-none focus:ring-2 focus:ring-blue-500 touch-manipulation"
                             aria-label={isMobileMenuOpen ? "Close navigation menu" : "Open navigation menu"}
                             aria-expanded={isMobileMenuOpen}
                             data-mobile-menu
@@ -190,23 +190,26 @@ export function Header() {
                     </div>
                 </div>
 
-                {/* Mobile Menu Panel */}
+                {/* Mobile Menu Panel - Top Slide Down */}
                 {isMobileMenuOpen && (
                     <>
-                        {/* Backdrop */}
+                        {/* Clean Backdrop */}
                         <div 
-                            className="fixed inset-0 bg-black/20 backdrop-blur-sm z-40 md:hidden"
+                            className="fixed inset-0 bg-black/50 z-40 lg:hidden"
                             onClick={closeMobileMenu}
                             aria-hidden="true"
                         />
                         
-                        {/* Mobile Menu */}
+                        {/* Professional Top-Down Mobile Menu */}
                         <div 
-                            className="fixed top-0 right-0 h-full w-80 max-w-[85vw] bg-white shadow-2xl z-50 md:hidden transform transition-transform duration-300 ease-out"
+                            className="fixed top-0 left-0 right-0 bg-white z-50 lg:hidden transform transition-all duration-300 ease-out shadow-xl"
                             data-mobile-menu
+                            style={{
+                                transform: isMobileMenuOpen ? 'translateY(0)' : 'translateY(-100%)',
+                            }}
                         >
-                            {/* Mobile Menu Header */}
-                            <div className="flex items-center justify-between p-4 border-b border-gray-200">
+                            {/* Header matching main header */}
+                            <div className="flex items-center justify-between p-4 border-b border-gray-100">
                                 <div className="flex items-center gap-2">
                                     <div className="relative flex flex-col items-start leading-none">
                                         <span className="font-serif text-xl font-bold tracking-tight text-amber-600">
@@ -219,84 +222,79 @@ export function Header() {
                                 </div>
                                 <button
                                     onClick={closeMobileMenu}
-                                    className="p-2 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-md"
+                                    className="p-2 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-lg transition-colors"
                                     aria-label="Close menu"
                                 >
-                                    <X className="w-5 h-5" />
+                                    <X className="w-6 h-6" />
                                 </button>
                             </div>
 
-                            {/* Mobile Menu Content */}
-                            <div className="flex flex-col h-full">
-                                {/* Navigation Links */}
-                                <nav className="flex-1 px-4 py-6 space-y-2">
+                            {/* Menu Content */}
+                            <div className="p-4 max-h-[80vh] overflow-y-auto">
+                                {/* Main Navigation */}
+                                <div className="space-y-2 mb-6">
                                     {[
-                                        { name: "Hotels", href: "/hotels", icon: Crown, description: "Luxury stays & budget hotels" },
-                                        { name: "Homestays", href: "/homestays", icon: Home, description: "Local family experiences" },
-                                        { name: "Packages", href: "/packages", icon: Briefcase, description: "Complete travel deals" },
-                                    ].map((item) => (
+                                        { name: "Hotels", href: "/hotels", icon: Crown, desc: "Luxury & Budget Stays" },
+                                        { name: "Homestays", href: "/homestays", icon: Home, desc: "Local Family Experiences" },
+                                        { name: "Packages", href: "/packages", icon: Briefcase, desc: "Complete Travel Deals" },
+                                    ].map((item, index) => (
                                         <Link
                                             key={item.name}
                                             href={item.href}
                                             onClick={closeMobileMenu}
-                                            className="flex items-center gap-4 p-4 rounded-xl hover:bg-gray-50 transition-colors group"
+                                            className="flex items-center gap-4 p-4 rounded-lg hover:bg-gray-50 transition-colors"
+                                            style={{
+                                                animationDelay: `${index * 100}ms`,
+                                                animation: isMobileMenuOpen ? 'fadeInUp 0.4s ease-out forwards' : 'none'
+                                            }}
                                         >
-                                            <div className="w-10 h-10 rounded-lg bg-amber-50 flex items-center justify-center group-hover:bg-amber-100 transition-colors">
-                                                <item.icon className="w-5 h-5 text-amber-600" />
+                                            <div className="w-12 h-12 rounded-lg bg-gray-100 flex items-center justify-center">
+                                                <item.icon className="w-6 h-6 text-gray-600" />
                                             </div>
                                             <div className="flex-1">
-                                                <div className="font-semibold text-gray-900">{item.name}</div>
-                                                <div className="text-sm text-gray-500">{item.description}</div>
+                                                <div className="font-semibold text-gray-900 text-lg">{item.name}</div>
+                                                <div className="text-sm text-gray-500">{item.desc}</div>
                                             </div>
                                         </Link>
                                     ))}
-                                </nav>
+                                </div>
 
-                                {/* Mobile Menu Footer */}
-                                <div className="border-t border-gray-200 p-4 space-y-4">
-                                    {/* Partner Link */}
+                                {/* Partner Section */}
+                                <div className="mb-6">
                                     <Link 
                                         href="/owner"
                                         onClick={closeMobileMenu}
-                                        className="flex items-center gap-3 p-3 rounded-lg bg-blue-50 hover:bg-blue-100 transition-colors"
+                                        className="flex items-center gap-4 p-4 rounded-lg bg-blue-50 hover:bg-blue-100 transition-colors border border-blue-100"
                                     >
-                                        <div className="w-8 h-8 rounded-lg bg-blue-100 flex items-center justify-center">
-                                            <Crown className="w-4 h-4 text-blue-600" />
+                                        <div className="w-12 h-12 rounded-lg bg-blue-500 flex items-center justify-center">
+                                            <Crown className="w-6 h-6 text-white" />
                                         </div>
-                                        <div>
-                                            <div className="font-semibold text-blue-900">List your property</div>
-                                            <div className="text-xs text-blue-600">Start earning today</div>
+                                        <div className="flex-1">
+                                            <div className="font-semibold text-blue-900 text-lg">List your property</div>
+                                            <div className="text-sm text-blue-600">Start earning today</div>
                                         </div>
-                                    </Link>
-
-                                    {/* Action Buttons */}
-                                    <div className="flex gap-2">
-                                        <Button 
-                                            variant="outline" 
-                                            size="sm" 
-                                            className="flex-1 gap-2"
-                                        >
-                                            <Globe className="w-4 h-4" />
-                                            INR
-                                        </Button>
-                                        <Button 
-                                            variant="outline" 
-                                            size="sm" 
-                                            className="flex-1 gap-2"
-                                        >
-                                            <Smartphone className="w-4 h-4" />
-                                            App
-                                        </Button>
-                                    </div>
-
-                                    {/* Login Button */}
-                                    <Link href="/login" onClick={closeMobileMenu} className="block">
-                                        <Button className="w-full bg-blue-600 text-white hover:bg-blue-700 font-semibold">
-                                            <User className="w-4 h-4 mr-2" />
-                                            Login / Sign up
-                                        </Button>
                                     </Link>
                                 </div>
+
+                                {/* Action Buttons */}
+                                <div className="grid grid-cols-2 gap-3 mb-6">
+                                    <button className="flex items-center justify-center gap-2 p-3 bg-gray-50 hover:bg-gray-100 rounded-lg transition-colors">
+                                        <Globe className="w-5 h-5 text-gray-600" />
+                                        <span className="font-medium text-gray-700">INR</span>
+                                    </button>
+                                    <button className="flex items-center justify-center gap-2 p-3 bg-gray-50 hover:bg-gray-100 rounded-lg transition-colors">
+                                        <Smartphone className="w-5 h-5 text-gray-600" />
+                                        <span className="font-medium text-gray-700">Download App</span>
+                                    </button>
+                                </div>
+
+                                {/* Login Button */}
+                                <Link href="/login" onClick={closeMobileMenu} className="block">
+                                    <button className="w-full flex items-center justify-center gap-3 p-4 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-semibold text-lg">
+                                        <User className="w-5 h-5" />
+                                        Login / Sign up
+                                    </button>
+                                </Link>
                             </div>
                         </div>
                     </>

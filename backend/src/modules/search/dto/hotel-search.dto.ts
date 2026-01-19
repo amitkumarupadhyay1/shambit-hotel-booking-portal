@@ -12,26 +12,15 @@ export class HotelSearchDto {
   @IsDateString()
   checkOutDate: string; // YYYY-MM-DD
 
+  @IsOptional()
   @IsInt()
   @Min(1)
-  @Transform(({ value }) => parseInt(value))
-  guests: number;
+  @Transform(({ value }) => value ? parseInt(value) : 1)
+  guests?: number = 1;
 
   @IsOptional()
   @IsEnum(HotelType)
   hotelType?: HotelType;
-
-  @IsOptional()
-  @IsInt()
-  @Min(0)
-  @Transform(({ value }) => value ? parseInt(value) : undefined)
-  minPrice?: number;
-
-  @IsOptional()
-  @IsInt()
-  @Min(0)
-  @Transform(({ value }) => value ? parseInt(value) : undefined)
-  maxPrice?: number;
 
   @IsOptional()
   @IsInt()
@@ -43,6 +32,6 @@ export class HotelSearchDto {
   @IsInt()
   @Min(1)
   @Max(50)
-  @Transform(({ value }) => value ? parseInt(value) : 20)
-  limit?: number = 20;
+  @Transform(({ value }) => value ? parseInt(value) : 10)
+  limit?: number = 10;
 }

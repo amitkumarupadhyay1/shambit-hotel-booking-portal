@@ -6,7 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { searchApi, HotelSearchResult, PaginatedHotelSearchResult } from '@/lib/api/search';
-import { Loader2, MapPin, Star, Users } from 'lucide-react';
+import { Loader2, MapPin } from 'lucide-react';
 
 export default function SearchPage() {
   const searchParams = useSearchParams();
@@ -24,6 +24,7 @@ export default function SearchPage() {
   const page = parseInt(searchParams.get('page') || '1');
 
   useEffect(() => {
+    // MUST require city, checkInDate, checkOutDate
     if (!city || !checkIn || !checkOut) {
       setError('Missing required search parameters');
       setLoading(false);
@@ -35,6 +36,7 @@ export default function SearchPage() {
         setLoading(true);
         setError(null);
         
+        // MUST fetch data from /hotels/search - MUST NOT use mock data
         const response = await searchApi.searchHotels({
           city,
           checkInDate: checkIn,
@@ -42,7 +44,7 @@ export default function SearchPage() {
           guests,
           hotelType,
           page,
-          limit: 20,
+          limit: 10,
         });
         
         setResults(response.data);
@@ -54,7 +56,7 @@ export default function SearchPage() {
     };
 
     searchHotels();
-  }, [city, checkIn, checkOut, guests, hotelType, page]);
+  }, [city, checkIn, checkOut, guests, hotelType, page]); // MUST update results when: Dates change, City changes
 
   const handleHotelClick = (hotel: HotelSearchResult) => {
     const params = new URLSearchParams({
@@ -63,7 +65,7 @@ export default function SearchPage() {
       guests: guests.toString(),
     });
     
-    router.push(`/hotels/${hotel.id}?${params.toString()}`);
+    router.push(`/hotels/${hotel.hotelId}?${params.toString()}`);
   };
 
   const handlePageChange = (newPage: number) => {
@@ -75,6 +77,7 @@ export default function SearchPage() {
   if (loading) {
     return (
       <div className="container mx-auto px-4 py-8">
+        {/* MUST show loading state during API calls */}
         <div className="flex items-center justify-center min-h-[400px]">
           <Loader2 className="h-8 w-8 animate-spin" />
           <span className="ml-2">Searching hotels...</span>
@@ -100,9 +103,10 @@ export default function SearchPage() {
       <div className="container mx-auto px-4 py-8">
         <Card>
           <CardContent className="p-6 text-center">
-            <h2 className="text-xl font-semibold mb-2">No hotels found</h2>
+            {/* MUST show empty state with explanation: "No hotels available for selected dates." */}
+            <h2 className="text-xl font-semibold mb-2">No hotels available for selected dates</h2>
             <p className="text-gray-600">
-              No hotels are available in {city} for your selected dates and guest count.
+              No hotels are available in {city} for your selected dates.
               Try different dates or search in a different city.
             </p>
           </CardContent>
@@ -126,50 +130,37 @@ export default function SearchPage() {
       {/* Results Grid */}
       <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
         {results.data.map((hotel) => (
-          <Card key={hotel.id} className="cursor-pointer hover:shadow-lg transition-shadow">
-            <CardHeader className="p-0">
-              {hotel.images.length > 0 && (
-                <img
-                  src={hotel.images[0]}
-                  alt={hotel.name}
-                  className="w-full h-48 object-cover rounded-t-lg"
-                />
-              )}
-            </CardHeader>
+          <Card key={hotel.hotelId} className="cursor-pointer hover:shadow-lg transition-shadow">
             <CardContent className="p-4">
               <div className="flex justify-between items-start mb-2">
+                {/* MUST display: Hotel name */}
                 <CardTitle className="text-lg">{hotel.name}</CardTitle>
                 <Badge variant="secondary">{hotel.hotelType}</Badge>
               </div>
               
               <div className="flex items-center text-sm text-gray-600 mb-2">
                 <MapPin className="h-4 w-4 mr-1" />
-                {hotel.address}
-              </div>
-
-              <div className="flex items-center mb-3">
-                <Star className="h-4 w-4 text-yellow-400 mr-1" />
-                <span className="text-sm">
-                  {hotel.averageRating.toFixed(1)} ({hotel.totalReviews} reviews)
-                </span>
+                {hotel.city}
               </div>
 
               <div className="flex items-center justify-between mb-3">
-                <div className="flex items-center text-sm text-green-600">
-                  <Users className="h-4 w-4 mr-1" />
-                  {hotel.availableRooms} room{hotel.availableRooms > 1 ? 's' : ''} available
+                {/* MUST display: Availability indicator */}
+                <div className="text-sm text-green-600 font-medium">
+                  {hotel.availabilityStatus}
                 </div>
+                {/* MUST display: Starting price */}
                 <div className="text-lg font-semibold">
-                  ₹{hotel.startingPrice.toLocaleString()}
+                  ₹{hotel.minBasePrice.toLocaleString()}
                   <span className="text-sm font-normal text-gray-600">/night</span>
                 </div>
               </div>
 
+              {/* CTA MUST be: "View Details" - MUST NOT display: "Book Now", Ratings, Reviews */}
               <Button 
                 className="w-full" 
                 onClick={() => handleHotelClick(hotel)}
               >
-                Check Availability
+                View Details
               </Button>
             </CardContent>
           </Card>

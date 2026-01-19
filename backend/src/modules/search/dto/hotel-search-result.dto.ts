@@ -1,17 +1,12 @@
 import { HotelType } from '../../hotels/entities/hotel.entity';
 
 export class HotelSearchResult {
-  id: string;
+  hotelId: string;
   name: string;
-  slug: string;
-  hotelType: HotelType;
   city: string;
-  address: string;
-  startingPrice: number;
-  averageRating: number;
-  totalReviews: number;
-  images: string[];
-  availableRooms: number;
+  hotelType: HotelType;
+  minBasePrice: number;
+  availabilityStatus: 'AVAILABLE';
 }
 
 export class PaginatedHotelSearchResult {

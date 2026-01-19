@@ -3,6 +3,12 @@ import { getRepositoryToken } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { ConfigService } from '@nestjs/config';
 import { ConflictException, NotFoundException } from '@nestjs/common';
+// Mock bcrypt at the top level
+jest.mock('bcrypt', () => ({
+  hash: jest.fn(),
+  compare: jest.fn(),
+}));
+
 import * as bcrypt from 'bcrypt';
 import { UsersService } from '../../src/modules/users/users.service';
 import { User, UserRole, UserStatus } from '../../src/modules/users/entities/user.entity';
@@ -90,7 +96,7 @@ describe('UsersService', () => {
       mockRepository.save.mockResolvedValue(mockUser);
 
       // Mock bcrypt.hash
-      jest.spyOn(bcrypt, 'hash').mockResolvedValue('hashedPassword123' as never);
+      (bcrypt.hash as jest.Mock).mockResolvedValue('hashedPassword123');
 
       const result = await service.create(createUserDto);
 
@@ -164,7 +170,7 @@ describe('UsersService', () => {
 
   describe('validatePassword', () => {
     it('should return true for valid password', async () => {
-      jest.spyOn(bcrypt, 'compare').mockResolvedValue(true as never);
+      (bcrypt.compare as jest.Mock).mockResolvedValue(true);
 
       const result = await service.validatePassword(mockUser, 'Test123!@#');
 
@@ -173,7 +179,7 @@ describe('UsersService', () => {
     });
 
     it('should return false for invalid password', async () => {
-      jest.spyOn(bcrypt, 'compare').mockResolvedValue(false as never);
+      (bcrypt.compare as jest.Mock).mockResolvedValue(false);
 
       const result = await service.validatePassword(mockUser, 'wrongpassword');
 

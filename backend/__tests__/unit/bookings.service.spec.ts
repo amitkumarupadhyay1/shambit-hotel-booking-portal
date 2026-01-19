@@ -148,6 +148,7 @@ describe('BookingsService', () => {
   const mockHotel: Hotel = {
     id: '456e7890-e89b-12d3-a456-426614174001',
     name: 'Test Hotel',
+    slug: 'test-hotel',
     description: 'A beautiful test hotel',
     hotelType: HotelType.HOTEL,
     status: HotelStatus.APPROVED,
@@ -183,6 +184,7 @@ describe('BookingsService', () => {
     bedType: 'Queen',
     basePrice: 2500,
     weekendPrice: 3000,
+    quantity: 1,
     roomSize: 25,
     amenities: ['AC', 'TV', 'WiFi'],
     images: ['room1.jpg'],

@@ -8,6 +8,13 @@ import { Hotel } from '../modules/hotels/entities/hotel.entity';
 import { Room } from '../modules/rooms/entities/room.entity';
 import { Booking } from '../modules/bookings/entities/booking.entity';
 import { RoomAvailability } from '../modules/availability/entities/room-availability.entity';
+// Enhanced onboarding entities
+import { EnhancedHotel } from '../modules/hotels/entities/enhanced-hotel.entity';
+import { EnhancedRoom } from '../modules/rooms/entities/enhanced-room.entity';
+import { AmenityDefinition } from '../modules/hotels/entities/amenity-definition.entity';
+import { OnboardingSession } from '../modules/hotels/entities/onboarding-session.entity';
+import { ImageMetadata } from '../modules/hotels/entities/image-metadata.entity';
+import { QualityReport } from '../modules/hotels/entities/quality-report.entity';
 
 @Injectable()
 export class DatabaseConfig implements TypeOrmOptionsFactory {
@@ -21,7 +28,21 @@ export class DatabaseConfig implements TypeOrmOptionsFactory {
       username: this.configService.get('DATABASE_USERNAME'),
       password: this.configService.get('DATABASE_PASSWORD'),
       database: this.configService.get('DATABASE_NAME'),
-      entities: [User, AuditLog, Hotel, Room, Booking, RoomAvailability],
+      entities: [
+        User, 
+        AuditLog, 
+        Hotel, 
+        Room, 
+        Booking, 
+        RoomAvailability,
+        // Enhanced onboarding entities
+        EnhancedHotel,
+        EnhancedRoom,
+        AmenityDefinition,
+        OnboardingSession,
+        ImageMetadata,
+        QualityReport,
+      ],
       synchronize: this.configService.get('NODE_ENV') === 'development',
       logging: false, // Disable SQL logging to reduce console noise
       ssl: this.configService.get('NODE_ENV') === 'production' ? { rejectUnauthorized: false } : false,
@@ -37,7 +58,21 @@ export const dataSourceOptions: DataSourceOptions = {
   username: process.env.DATABASE_USERNAME,
   password: process.env.DATABASE_PASSWORD,
   database: process.env.DATABASE_NAME,
-  entities: [User, AuditLog, Hotel, Room, Booking, RoomAvailability],
+  entities: [
+    User, 
+    AuditLog, 
+    Hotel, 
+    Room, 
+    Booking, 
+    RoomAvailability,
+    // Enhanced onboarding entities
+    EnhancedHotel,
+    EnhancedRoom,
+    AmenityDefinition,
+    OnboardingSession,
+    ImageMetadata,
+    QualityReport,
+  ],
   migrations: ['src/migrations/*.ts'],
   synchronize: false,
 };

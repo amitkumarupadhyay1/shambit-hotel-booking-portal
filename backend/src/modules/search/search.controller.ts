@@ -5,16 +5,16 @@ import { HotelAvailabilityDto } from './dto/hotel-availability.dto';
 import { PaginatedHotelSearchResult } from './dto/hotel-search-result.dto';
 import { HotelDetailDto } from './dto/hotel-detail.dto';
 
-@Controller('search')
+@Controller()
 export class SearchController {
   constructor(private readonly searchService: SearchService) {}
 
-  @Get('hotels')
+  @Get('hotels/search')
   async searchHotels(@Query() searchDto: HotelSearchDto): Promise<PaginatedHotelSearchResult> {
     return this.searchService.searchHotels(searchDto);
   }
 
-  @Get('hotels/:id/availability')
+  @Get('search/hotels/:id/availability')
   async getHotelDetails(
     @Param('id', ParseUUIDPipe) hotelId: string,
     @Query() availabilityDto: HotelAvailabilityDto,

@@ -4,7 +4,6 @@ import { Repository, DataSource, IsNull, Not, Any } from 'typeorm';
 import { Hotel, HotelStatus } from './entities/hotel.entity';
 import { CreateHotelDto } from './dto/create-hotel.dto';
 import { UpdateHotelDto } from './dto/update-hotel.dto';
-import { CreateHotelOnboardingDto } from './dto/create-hotel-onboarding.dto';
 import { RoomsService } from '../rooms/rooms.service';
 
 @Injectable()
@@ -28,44 +27,8 @@ export class HotelsService {
     return this.hotelRepository.save(savedHotel);
   }
 
-  /**
-   * TRANSACTIONAL ONBOARDING: Hotel + Rooms
-   */
-  async onboard(dto: CreateHotelOnboardingDto, ownerId: string): Promise<Hotel> {
-    const queryRunner = this.dataSource.createQueryRunner();
-    await queryRunner.connect();
-    await queryRunner.startTransaction();
-
-    try {
-      // 1. Create Hotel
-      const hotel = queryRunner.manager.create(Hotel, {
-        ...dto.hotel,
-        ownerId,
-        status: HotelStatus.PENDING,
-      });
-
-      const savedHotel = await queryRunner.manager.save(Hotel, hotel);
-      savedHotel.slug = this.generateSlug(savedHotel.name, savedHotel.id);
-      await queryRunner.manager.save(Hotel, savedHotel);
-
-      // 2. Create Rooms
-      if (dto.rooms && dto.rooms.length > 0) {
-        await this.roomsService.createBulkTransactional(
-          savedHotel.id,
-          dto.rooms,
-          queryRunner.manager,
-        );
-      }
-
-      await queryRunner.commitTransaction();
-      return this.findOne(savedHotel.id, ownerId); // Pass ownerId to allow access
-    } catch (err) {
-      await queryRunner.rollbackTransaction();
-      throw err;
-    } finally {
-      await queryRunner.release();
-    }
-  }
+  // Note: Enhanced onboarding service will be implemented in future tasks
+  // Old transactional onboarding method removed - will be replaced with enhanced onboarding
 
   async findAllPublic(filters?: any): Promise<Hotel[]> {
     const where: any = { status: HotelStatus.APPROVED };

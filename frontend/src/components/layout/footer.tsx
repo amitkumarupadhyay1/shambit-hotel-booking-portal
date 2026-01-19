@@ -17,6 +17,7 @@ export function Footer() {
                                     src="/ayodhya_logo.png"
                                     alt="Ayodhya Logo"
                                     fill
+                                    sizes="48px"
                                     className="object-contain brightness-0 invert"
                                 />
                             </div>

@@ -4,32 +4,19 @@ export interface HotelSearchParams {
   city: string;
   checkInDate: string;
   checkOutDate: string;
-  guests: number;
+  guests?: number;
   hotelType?: string;
-  minPrice?: number;
-  maxPrice?: number;
   page?: number;
   limit?: number;
 }
 
-export interface AvailabilityParams {
-  checkInDate?: string;
-  checkOutDate?: string;
-  guests?: number;
-}
-
 export interface HotelSearchResult {
-  id: string;
+  hotelId: string;
   name: string;
-  slug: string;
-  hotelType: string;
   city: string;
-  address: string;
-  startingPrice: number;
-  averageRating: number;
-  totalReviews: number;
-  images: string[];
-  availableRooms: number;
+  hotelType: string;
+  minBasePrice: number;
+  availabilityStatus: 'AVAILABLE';
 }
 
 export interface PaginatedHotelSearchResult {
@@ -79,8 +66,8 @@ export interface HotelDetailDto {
 
 export const searchApi = {
   searchHotels: (params: HotelSearchParams) => 
-    apiClient.get<PaginatedHotelSearchResult>('/search/hotels', { params }),
+    apiClient.get<PaginatedHotelSearchResult>('/hotels/search', { params }),
   
-  getHotelDetails: (id: string, params?: AvailabilityParams) =>
+  getHotelDetails: (id: string, params?: { checkInDate?: string; checkOutDate?: string; guests?: number }) =>
     apiClient.get<HotelDetailDto>(`/search/hotels/${id}/availability`, { params }),
 };

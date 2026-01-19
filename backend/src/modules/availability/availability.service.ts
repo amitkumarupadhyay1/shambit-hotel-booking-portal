@@ -1,6 +1,6 @@
 import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, Between, MoreThanOrEqual, LessThanOrEqual } from 'typeorm';
+import { Repository, Between, MoreThanOrEqual, LessThanOrEqual, In } from 'typeorm';
 import { RoomAvailability } from './entities/room-availability.entity';
 import { Room } from '../rooms/entities/room.entity';
 import { AvailabilityCalendarDto } from './dto/availability-calendar.dto';
@@ -259,5 +259,114 @@ export class AvailabilityService {
     }
 
     return availableHotelIds;
+  }
+
+  /**
+   * Batch check room availability for multiple rooms - OPTIMIZED VERSION
+   * Fixes N+1 query problem by checking all rooms in a single query
+   */
+  async batchCheckRoomAvailability(
+    roomIds: string[],
+    checkIn: Date,
+    checkOut: Date,
+    guests: number = 1,
+  ): Promise<Map<string, { isAvailable: boolean; minPrice: number }>> {
+    if (roomIds.length === 0) {
+      return new Map();
+    }
+
+    // Get all rooms with their details in one query
+    const rooms = await this.roomRepository.find({
+      where: { id: In(roomIds) },
+      select: ['id', 'maxOccupancy', 'basePrice'],
+    });
+
+    // Filter rooms that can accommodate guests
+    const eligibleRooms = rooms.filter(room => room.maxOccupancy >= guests);
+    const eligibleRoomIds = eligibleRooms.map(room => room.id);
+
+    if (eligibleRoomIds.length === 0) {
+      return new Map();
+    }
+
+    // Check availability for all eligible rooms in a single query
+    const endDate = new Date(checkOut);
+    endDate.setDate(endDate.getDate() - 1);
+
+    const unavailableRooms = await this.availabilityRepository
+      .createQueryBuilder('availability')
+      .select('availability.roomId')
+      .where('availability.roomId IN (:...roomIds)', { roomIds: eligibleRoomIds })
+      .andWhere('availability.date BETWEEN :checkIn AND :endDate', { checkIn, endDate })
+      .andWhere('availability.availableCount = 0')
+      .getMany();
+
+    const unavailableRoomIds = new Set(unavailableRooms.map(r => r.roomId));
+
+    // Build result map
+    const result = new Map<string, { isAvailable: boolean; minPrice: number }>();
+    
+    for (const room of eligibleRooms) {
+      const isAvailable = !unavailableRoomIds.has(room.id);
+      result.set(room.id, {
+        isAvailable,
+        minPrice: room.basePrice,
+      });
+    }
+
+    return result;
+  }
+
+  /**
+   * Get hotels with availability using optimized batch queries
+   */
+  async getHotelsWithAvailabilityOptimized(
+    hotels: Array<{ id: string; rooms: Array<{ id: string; basePrice: number }> }>,
+    checkIn: Date,
+    checkOut: Date,
+    guests: number = 1,
+  ): Promise<Array<{ hotelId: string; minPrice: number }>> {
+    // Collect all room IDs
+    const allRoomIds: string[] = [];
+    const hotelRoomMap = new Map<string, string[]>();
+    
+    for (const hotel of hotels) {
+      const roomIds = hotel.rooms.map(room => room.id);
+      allRoomIds.push(...roomIds);
+      hotelRoomMap.set(hotel.id, roomIds);
+    }
+
+    // Batch check availability for all rooms
+    const roomAvailability = await this.batchCheckRoomAvailability(
+      allRoomIds,
+      checkIn,
+      checkOut,
+      guests,
+    );
+
+    // Process results by hotel
+    const availableHotels: Array<{ hotelId: string; minPrice: number }> = [];
+
+    for (const hotel of hotels) {
+      let hasAvailableRooms = false;
+      let minPrice = Infinity;
+
+      for (const room of hotel.rooms) {
+        const availability = roomAvailability.get(room.id);
+        if (availability?.isAvailable) {
+          hasAvailableRooms = true;
+          minPrice = Math.min(minPrice, availability.minPrice);
+        }
+      }
+
+      if (hasAvailableRooms) {
+        availableHotels.push({
+          hotelId: hotel.id,
+          minPrice: minPrice === Infinity ? 0 : minPrice,
+        });
+      }
+    }
+
+    return availableHotels;
   }
 }
