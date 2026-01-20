@@ -7,7 +7,6 @@ import {
 import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
 import { UsersService } from '../users/users.service';
-import { AuditService } from '../audit/audit.service';
 import { User, UserRole } from '../users/entities/user.entity';
 import { LoginDto } from './dto/login.dto';
 import { RegisterDto } from './dto/register.dto';
@@ -20,7 +19,6 @@ export class AuthService {
     private usersService: UsersService,
     private jwtService: JwtService,
     private configService: ConfigService,
-    private auditService: AuditService,
   ) {}
 
   async validateUser(email: string, password: string): Promise<User | null> {
@@ -35,25 +33,11 @@ export class AuthService {
     const user = await this.validateUser(loginDto.email, loginDto.password);
     
     if (!user) {
-      // Log failed login attempt
-      await this.auditService.log({
-        action: 'LOGIN_FAILED',
-        resource: 'auth',
-        resourceId: loginDto.email,
-        details: { reason: 'Invalid credentials', ipAddress, userAgent },
-      });
       throw new UnauthorizedException('Invalid credentials');
     }
 
     if (user.status !== 'ACTIVE') {
-      await this.auditService.log({
-        action: 'LOGIN_BLOCKED',
-        resource: 'auth',
-        resourceId: user.id,
-        userId: user.id,
-        details: { reason: `Account status: ${user.status}`, ipAddress, userAgent },
-      });
-      throw new UnauthorizedException('Account is not active');
+      throw new UnauthorizedException(`Account is ${user.status.toLowerCase()}`);
     }
 
     // Update last login
@@ -61,15 +45,6 @@ export class AuthService {
 
     // Generate tokens
     const tokens = await this.generateTokens(user);
-
-    // Log successful login
-    await this.auditService.log({
-      action: 'LOGIN_SUCCESS',
-      resource: 'auth',
-      resourceId: user.id,
-      userId: user.id,
-      details: { ipAddress, userAgent },
-    });
 
     return {
       user,
@@ -81,7 +56,7 @@ export class AuthService {
 
   async register(registerDto: RegisterDto, ipAddress: string, userAgent: string): Promise<AuthResponse> {
     try {
-      // Determine role based on registration context
+      // Determine roles based on registration type
       let roles = [UserRole.BUYER]; // Default for customers
 
       if (registerDto.role === UserRole.SELLER) {
@@ -90,6 +65,7 @@ export class AuthService {
         roles = [UserRole.ADMIN];
       }
 
+      // Create user
       const user = await this.usersService.create({
         ...registerDto,
         roles,
@@ -97,15 +73,6 @@ export class AuthService {
 
       // Generate tokens
       const tokens = await this.generateTokens(user);
-
-      // Log registration
-      await this.auditService.log({
-        action: 'USER_REGISTERED',
-        resource: 'user',
-        resourceId: user.id,
-        userId: user.id,
-        details: { ipAddress, userAgent, roles: user.roles },
-      });
 
       return {
         user,
@@ -140,14 +107,8 @@ export class AuthService {
   }
 
   async logout(userId: string, ipAddress: string, userAgent: string): Promise<void> {
-    // Log logout
-    await this.auditService.log({
-      action: 'LOGOUT',
-      resource: 'auth',
-      resourceId: userId,
-      userId,
-      details: { ipAddress, userAgent },
-    });
+    // Simple logout - in a real app you might want to blacklist the token
+    return;
   }
 
   private async generateTokens(user: User): Promise<{ accessToken: string; refreshToken: string }> {

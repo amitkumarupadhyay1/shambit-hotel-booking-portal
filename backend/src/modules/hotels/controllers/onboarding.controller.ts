@@ -77,6 +77,7 @@ export class OnboardingController {
   async updateStep(
     @Param('sessionId') sessionId: string,
     @Body() updateDto: UpdateStepDto,
+    @Request() req: any,
   ) {
     this.logger.log(`Updating step ${updateDto.stepId} for session ${sessionId}`);
 
@@ -84,6 +85,7 @@ export class OnboardingController {
       sessionId,
       updateDto.stepId,
       updateDto.stepData,
+      req.user.id,
     );
 
     return {
@@ -119,10 +121,10 @@ export class OnboardingController {
    */
   @Post('sessions/:sessionId/complete')
   @Roles(UserRole.SELLER, UserRole.ADMIN)
-  async completeOnboarding(@Param('sessionId') sessionId: string) {
+  async completeOnboarding(@Param('sessionId') sessionId: string, @Request() req: any) {
     this.logger.log(`Completing onboarding for session ${sessionId}`);
 
-    const result = await this.onboardingService.completeOnboarding(sessionId);
+    const result = await this.onboardingService.completeOnboarding(sessionId, req.user.id);
 
     return {
       success: result.success,

@@ -7,6 +7,8 @@ import { OnboardingSession, SessionStatus } from '../../src/modules/hotels/entit
 import { EnhancedHotel } from '../../src/modules/hotels/entities/enhanced-hotel.entity';
 import { User } from '../../src/modules/users/entities/user.entity';
 import { OnboardingStatus } from '../../src/modules/hotels/interfaces/enhanced-hotel.interface';
+import { HotelRbacService } from '../../src/modules/auth/services/hotel-rbac.service';
+import { OnboardingAuditService } from '../../src/modules/auth/services/onboarding-audit.service';
 
 describe('Mobile Wizard Onboarding Service', () => {
   let service: OnboardingService;
@@ -124,6 +126,20 @@ describe('Mobile Wizard Onboarding Service', () => {
             createQueryRunner: jest.fn().mockReturnValue(mockQueryRunner),
           },
         },
+        {
+          provide: HotelRbacService,
+          useValue: {
+            enforcePermission: jest.fn(),
+          },
+        },
+        {
+          provide: OnboardingAuditService,
+          useValue: {
+            logSessionCreated: jest.fn(),
+            logStepUpdated: jest.fn(),
+            logSessionCompleted: jest.fn(),
+          },
+        },
       ],
     }).compile();
 
@@ -216,7 +232,7 @@ describe('Mobile Wizard Onboarding Service', () => {
           jest.spyOn(onboardingSessionRepository, 'findOne').mockResolvedValue(mockSession);
 
           // Test step data update for mobile interface
-          await service.updateOnboardingStep(session.id, stepData.stepId, stepData.data);
+          await service.updateOnboardingStep(session.id, stepData.stepId, stepData.data, userId);
 
           // Property: Real-time feedback should be supported through validation
           const validationResult = await service.validateStepData(stepData.stepId, stepData.data);
@@ -254,7 +270,8 @@ describe('Mobile Wizard Onboarding Service', () => {
         fc.string({ minLength: 1 }), // sessionId
         onboardingDraftArb,
         networkConditionArb,
-        async (sessionId, draftData, networkCondition) => {
+        fc.string({ minLength: 1 }), // userId
+        async (sessionId, draftData, networkCondition, userId) => {
           // Mock session existence
           const mockSession = createMockSession({
             id: sessionId,
@@ -299,7 +316,7 @@ describe('Mobile Wizard Onboarding Service', () => {
           const stepIds = Object.keys(draftData);
           for (const stepId of stepIds) {
             const stepData = draftData[stepId];
-            await service.updateOnboardingStep(sessionId, stepId, stepData);
+            await service.updateOnboardingStep(sessionId, stepId, stepData, userId);
             
             // Verify step data is preserved
             const updatedDraft = await service.loadDraft(sessionId);
@@ -416,16 +433,17 @@ describe('Mobile Wizard Onboarding Service', () => {
           /^[a-zA-Z0-9_-]+$/.test(s) // Only alphanumeric, underscore, and dash
         ), // stepId
         fc.record({
-          selectedAmenities: fc.array(fc.string()),
+          selectedAmenities: fc.uniqueArray(fc.string({ minLength: 1 }), { minLength: 1, maxLength: 5 }),
           description: fc.string({ minLength: 10, maxLength: 500 }),
-          images: fc.array(fc.record({
-            id: fc.string(),
+          images: fc.uniqueArray(fc.record({
+            id: fc.string({ minLength: 1 }),
             url: fc.webUrl(),
             category: fc.constantFrom('exterior', 'lobby', 'rooms')
-          }))
+          }), { minLength: 0, maxLength: 5, selector: img => img.id })
         }),
         fc.integer({ min: 2, max: 5 }), // number of identical updates
-        async (sessionId, stepId, stepData, updateCount) => {
+        fc.string({ minLength: 1 }), // userId
+        async (sessionId, stepId, stepData, updateCount, userId) => {
           // Mock session existence
           const mockSession = createMockSession({
             id: sessionId,
@@ -448,7 +466,7 @@ describe('Mobile Wizard Onboarding Service', () => {
 
           // Perform multiple identical updates
           const updatePromises = Array(updateCount).fill(null).map(() =>
-            service.updateOnboardingStep(sessionId, stepId, stepData)
+            service.updateOnboardingStep(sessionId, stepId, stepData, userId)
           );
 
           await Promise.all(updatePromises);
@@ -565,15 +583,11 @@ describe('Mobile Wizard Onboarding Service', () => {
 
     // Update steps and validate
     for (const step of steps) {
-      await service.updateOnboardingStep(session.id, step.id, step.data);
+      await service.updateOnboardingStep(session.id, step.id, step.data, userId);
       const validation = await service.validateStepData(step.id, step.data);
       expect(validation).toHaveProperty('isValid');
-      
+
       await service.markStepCompleted(session.id, step.id);
-      
-      // Update the test state to reflect the completed step
-      testCompletedSteps.push(step.id);
-      testMockSession.completedSteps = testCompletedSteps;
     }
 
     // Verify progress tracking

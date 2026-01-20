@@ -438,43 +438,67 @@ export class RoomEnhancementService {
     let amenityCompleteness = 0;
 
     // Image quality (40% weight)
-    if (roomData.images.length > 0) {
-      const avgImageQuality = roomData.images.reduce((sum, img) => {
-        return sum + (img.qualityScore || 0);
-      }, 0) / roomData.images.length;
-      
-      // Bonus for having multiple images
-      const imageCountBonus = Math.min(roomData.images.length * 10, 30);
-      imageQuality = Math.min(avgImageQuality + imageCountBonus, 100);
+    if (roomData.images && roomData.images.length > 0) {
+      // Filter out images with invalid quality scores and ensure we have valid numbers
+      const validImages = roomData.images.filter(img => 
+        img.qualityScore !== undefined && 
+        img.qualityScore !== null && 
+        !isNaN(img.qualityScore) &&
+        typeof img.qualityScore === 'number'
+      );
+
+      if (validImages.length > 0) {
+        const avgImageQuality = validImages.reduce((sum, img) => {
+          return sum + img.qualityScore;
+        }, 0) / validImages.length;
+        
+        // Ensure avgImageQuality is a valid number
+        if (!isNaN(avgImageQuality) && isFinite(avgImageQuality)) {
+          // Bonus for having multiple images
+          const imageCountBonus = Math.min(validImages.length * 10, 30);
+          imageQuality = Math.min(avgImageQuality + imageCountBonus, 100);
+        }
+      }
     }
 
     // Description quality (30% weight)
     if (roomData.description) {
       const wordCount = roomData.description.wordCount || 0;
-      if (wordCount >= 50) {
+      if (wordCount >= 50 && !isNaN(wordCount) && isFinite(wordCount)) {
         descriptionQuality = Math.min(wordCount / 2, 100); // 2 words = 1 point, max 100
       }
     }
 
     // Amenity completeness (30% weight)
     if (roomData.amenities) {
-      const totalAmenities = 
-        (roomData.amenities.inherited?.length || 0) +
-        (roomData.amenities.specific?.length || 0);
-      amenityCompleteness = Math.min(totalAmenities * 10, 100); // 10 points per amenity, max 100
+      const inheritedCount = roomData.amenities.inherited?.length || 0;
+      const specificCount = roomData.amenities.specific?.length || 0;
+      const totalAmenities = inheritedCount + specificCount;
+      
+      if (!isNaN(totalAmenities) && isFinite(totalAmenities)) {
+        amenityCompleteness = Math.min(totalAmenities * 10, 100); // 10 points per amenity, max 100
+      }
     }
 
+    // Ensure all components are valid numbers before calculating overall score
+    const validImageQuality = !isNaN(imageQuality) && isFinite(imageQuality) ? imageQuality : 0;
+    const validDescriptionQuality = !isNaN(descriptionQuality) && isFinite(descriptionQuality) ? descriptionQuality : 0;
+    const validAmenityCompleteness = !isNaN(amenityCompleteness) && isFinite(amenityCompleteness) ? amenityCompleteness : 0;
+
     const overallScore = Math.round(
-      (imageQuality * 0.4) + 
-      (descriptionQuality * 0.3) + 
-      (amenityCompleteness * 0.3)
+      (validImageQuality * 0.4) + 
+      (validDescriptionQuality * 0.3) + 
+      (validAmenityCompleteness * 0.3)
     );
 
+    // Ensure the final overall score is valid
+    const finalOverallScore = !isNaN(overallScore) && isFinite(overallScore) ? overallScore : 0;
+
     return {
-      overallScore,
-      imageQuality,
-      descriptionQuality,
-      amenityCompleteness,
+      overallScore: finalOverallScore,
+      imageQuality: validImageQuality,
+      descriptionQuality: validDescriptionQuality,
+      amenityCompleteness: validAmenityCompleteness,
       lastUpdated: new Date(),
       maintenanceScore: 100, // Default, would be updated by maintenance system
     };

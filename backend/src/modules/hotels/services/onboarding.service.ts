@@ -5,6 +5,9 @@ import { OnboardingSession, SessionStatus } from '../entities/onboarding-session
 import { EnhancedHotel } from '../entities/enhanced-hotel.entity';
 import { User } from '../../users/entities/user.entity';
 import { OnboardingStatus } from '../interfaces/enhanced-hotel.interface';
+import { HotelRbacService } from '../../auth/services/hotel-rbac.service';
+import { OnboardingAuditService } from '../../auth/services/onboarding-audit.service';
+import { OnboardingPermission } from '../../auth/enums/hotel-roles.enum';
 
 export interface StepData {
   [key: string]: any;
@@ -40,14 +43,28 @@ export class OnboardingService {
     @InjectRepository(User)
     private readonly userRepository: Repository<User>,
     private readonly dataSource: DataSource,
+    private readonly hotelRbacService: HotelRbacService,
+    private readonly auditService: OnboardingAuditService,
   ) {}
 
   /**
    * Create a new onboarding session for a hotel
    * Requirements: 6.1, 6.4 - Mobile-first onboarding with offline support
+   * Requirements: 10.1 - Role-based access control
    */
-  async createOnboardingSession(hotelId: string, userId: string): Promise<OnboardingSession> {
+  async createOnboardingSession(
+    hotelId: string, 
+    userId: string,
+    metadata?: { ipAddress?: string; userAgent?: string }
+  ): Promise<OnboardingSession> {
     this.logger.log(`Creating onboarding session for hotel ${hotelId} and user ${userId}`);
+
+    // Check permissions
+    await this.hotelRbacService.enforcePermission({
+      userId,
+      hotelId,
+      permission: OnboardingPermission.CREATE_SESSION,
+    });
 
     // Verify user exists
     const user = await this.userRepository.findOne({ where: { id: userId } });
@@ -87,6 +104,10 @@ export class OnboardingService {
     session.expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000); // 7 days
 
     const savedSession = await this.onboardingSessionRepository.save(session);
+    
+    // Audit log
+    await this.auditService.logSessionCreated(userId, hotelId, savedSession.id, metadata);
+    
     this.logger.log(`Created new onboarding session ${savedSession.id}`);
 
     return savedSession;
@@ -95,8 +116,15 @@ export class OnboardingService {
   /**
    * Update onboarding step data
    * Requirements: 6.5 - Real-time validation, 6.4 - Offline draft saving
+   * Requirements: 10.1 - Role-based access control, 10.4 - Audit logging
    */
-  async updateOnboardingStep(sessionId: string, stepId: string, stepData: StepData): Promise<void> {
+  async updateOnboardingStep(
+    sessionId: string, 
+    stepId: string, 
+    stepData: StepData,
+    userId: string,
+    metadata?: { ipAddress?: string; userAgent?: string }
+  ): Promise<void> {
     this.logger.log(`Updating step ${stepId} for session ${sessionId}`);
 
     const session = await this.onboardingSessionRepository.findOne({
@@ -111,11 +139,37 @@ export class OnboardingService {
       throw new BadRequestException('Onboarding session is not active or has expired');
     }
 
-    // Update draft data
-    session.draftData[stepId] = stepData;
+    // Check permissions based on step type
+    const permission = this.getStepPermission(stepId);
+    await this.hotelRbacService.enforcePermission({
+      userId,
+      hotelId: session.enhancedHotelId,
+      permission,
+    });
+
+    // Store previous data for audit
+    const previousData = session.draftData[stepId] || null;
+
+    // Ensure idempotent behavior by cleaning and normalizing step data
+    const normalizedStepData = this.normalizeStepData(stepData);
+
+    // Update draft data with normalized data
+    session.draftData[stepId] = normalizedStepData;
     session.updatedAt = new Date();
 
     await this.onboardingSessionRepository.save(session);
+    
+    // Audit log
+    await this.auditService.logStepUpdated(
+      userId,
+      session.enhancedHotelId,
+      sessionId,
+      stepId,
+      previousData,
+      normalizedStepData,
+      metadata
+    );
+    
     this.logger.log(`Updated step ${stepId} data for session ${sessionId}`);
   }
 
@@ -166,8 +220,13 @@ export class OnboardingService {
   /**
    * Complete onboarding process
    * Requirements: 7.1 - Quality score calculation, 8.4 - System integration
+   * Requirements: 10.1 - Role-based access control, 10.4 - Audit logging
    */
-  async completeOnboarding(sessionId: string): Promise<CompletionResult> {
+  async completeOnboarding(
+    sessionId: string,
+    userId: string,
+    metadata?: { ipAddress?: string; userAgent?: string }
+  ): Promise<CompletionResult> {
     this.logger.log(`Completing onboarding for session ${sessionId}`);
 
     const session = await this.onboardingSessionRepository.findOne({
@@ -182,6 +241,13 @@ export class OnboardingService {
     if (!session.isActive()) {
       throw new BadRequestException('Onboarding session is not active or has expired');
     }
+
+    // Check permissions
+    await this.hotelRbacService.enforcePermission({
+      userId,
+      hotelId: session.enhancedHotelId,
+      permission: OnboardingPermission.COMPLETE_SESSION,
+    });
 
     const queryRunner = this.dataSource.createQueryRunner();
     await queryRunner.connect();
@@ -222,6 +288,15 @@ export class OnboardingService {
       await queryRunner.manager.save(session);
 
       await queryRunner.commitTransaction();
+
+      // Audit log
+      await this.auditService.logSessionCompleted(
+        userId,
+        session.enhancedHotelId,
+        sessionId,
+        qualityScore,
+        metadata
+      );
 
       this.logger.log(`Completed onboarding for session ${sessionId} with quality score ${qualityScore}`);
 
@@ -493,5 +568,112 @@ export class OnboardingService {
     }
 
     await queryRunner.manager.save(hotel);
+  }
+
+  /**
+   * Get required permission for a specific onboarding step
+   * Requirements: 10.1 - Step-specific permission enforcement
+   */
+  private getStepPermission(stepId: string): OnboardingPermission {
+    switch (stepId) {
+      case 'amenities':
+        return OnboardingPermission.UPDATE_AMENITIES;
+      case 'images':
+        return OnboardingPermission.UPDATE_IMAGES;
+      case 'property-info':
+        return OnboardingPermission.UPDATE_PROPERTY_INFO;
+      case 'rooms':
+        return OnboardingPermission.UPDATE_ROOMS;
+      case 'business-features':
+        return OnboardingPermission.UPDATE_BUSINESS_FEATURES;
+      default:
+        return OnboardingPermission.UPDATE_SESSION; // Default permission
+    }
+  }
+
+  /**
+   * Normalize step data to ensure idempotent behavior
+   * Requirements: 6.4, 8.3 - Idempotent step updates for offline sync and data consistency
+   */
+  private normalizeStepData(stepData: StepData): StepData {
+    const normalized = { ...stepData };
+
+    // Handle images array - ensure unique IDs and filter out empty IDs
+    if (normalized.images && Array.isArray(normalized.images)) {
+      const seenIds = new Set<string>();
+      normalized.images = normalized.images
+        .filter((image: any) => {
+          // Filter out images with empty or invalid IDs
+          if (!image.id || image.id.trim() === '') {
+            return false;
+          }
+          
+          // Filter out duplicate IDs
+          if (seenIds.has(image.id)) {
+            return false;
+          }
+          
+          seenIds.add(image.id);
+          return true;
+        });
+    }
+
+    // Handle selectedAmenities array - ensure uniqueness but preserve original values
+    if (normalized.selectedAmenities && Array.isArray(normalized.selectedAmenities)) {
+      const seen = new Set();
+      normalized.selectedAmenities = normalized.selectedAmenities.filter(amenity => {
+        if (seen.has(amenity)) {
+          return false;
+        }
+        seen.add(amenity);
+        return true;
+      });
+    }
+
+    // Handle rooms array - ensure unique room names and clean image IDs
+    if (normalized.rooms && Array.isArray(normalized.rooms)) {
+      const seenRoomNames = new Set<string>();
+      normalized.rooms = normalized.rooms
+        .filter((room: any) => {
+          if (!room.name || room.name.trim() === '') {
+            return false;
+          }
+          
+          if (seenRoomNames.has(room.name)) {
+            return false;
+          }
+          
+          seenRoomNames.add(room.name);
+          return true;
+        })
+        .map((room: any) => {
+          const normalizedRoom = { ...room };
+          
+          // Clean room images
+          if (normalizedRoom.images && Array.isArray(normalizedRoom.images)) {
+            const roomImageIds = new Set<string>();
+            normalizedRoom.images = normalizedRoom.images
+              .filter((image: any) => {
+                if (!image.id || image.id.trim() === '') {
+                  return false;
+                }
+                
+                if (roomImageIds.has(image.id)) {
+                  return false;
+                }
+                
+                roomImageIds.add(image.id);
+                return true;
+              });
+          }
+          
+          return normalizedRoom;
+        });
+    }
+
+    // Don't normalize description - preserve user input exactly as provided
+    // Only normalize data that could cause actual duplication or consistency issues
+
+    return normalized;
   }
 }

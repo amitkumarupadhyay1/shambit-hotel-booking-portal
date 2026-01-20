@@ -28,7 +28,8 @@
     "**/*.tsx",
     ".next/types/**/*.ts",
     ".next/dev/types/**/*.ts",
-    "**/*.mts"
+    "**/*.mts",
+    "src/types/jest-dom.d.ts"
   ],
-  "exclude": ["node_modules", "backend", "**/*.test.*", "**/*.spec.*", "**/__tests__/**", "**/test/**"]
+  "exclude": ["node_modules", "backend"]
 }
