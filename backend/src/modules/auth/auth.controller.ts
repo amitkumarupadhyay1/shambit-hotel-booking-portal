@@ -17,7 +17,7 @@ import { JwtAuthGuard } from './guards/jwt-auth.guard';
 
 @Controller('auth')
 export class AuthController {
-  constructor(private readonly authService: AuthService) {}
+  constructor(private readonly authService: AuthService) { }
 
   @Post('login')
   @Throttle({ default: { limit: 5, ttl: 60000 } }) // 5 attempts per minute
@@ -80,13 +80,13 @@ export class AuthController {
     @Response({ passthrough: true }) _res: ExpressResponse,
   ) {
     const refreshToken = req.cookies?.refreshToken;
-    
+
     if (!refreshToken) {
       throw new UnauthorizedException('Refresh token not found');
     }
 
     const result = await this.authService.refreshToken(refreshToken);
-    
+
     return {
       accessToken: result.accessToken,
       message: 'Token refreshed successfully',
@@ -108,13 +108,32 @@ export class AuthController {
     const ipAddress = req.ip || req.connection.remoteAddress;
     const userAgent = req.get('User-Agent') || 'Unknown';
 
-    await this.authService.logout(req.user.id, ipAddress, userAgent);
+    await this.authService.logout(req.user.id, req.user.sessionId, ipAddress, userAgent);
 
     // Clear refresh token cookie
     res.clearCookie('refreshToken');
 
     return {
       message: 'Logout successful',
+    };
+  }
+
+  @Post('global-logout')
+  @UseGuards(JwtAuthGuard)
+  async globalLogout(
+    @Request() req,
+    @Response({ passthrough: true }) res: ExpressResponse,
+  ) {
+    const ipAddress = req.ip || req.connection.remoteAddress;
+    const userAgent = req.get('User-Agent') || 'Unknown';
+
+    await this.authService.logoutGlobal(req.user.id, ipAddress, userAgent);
+
+    // Clear refresh token cookie
+    res.clearCookie('refreshToken');
+
+    return {
+      message: 'Global logout successful',
     };
   }
 }

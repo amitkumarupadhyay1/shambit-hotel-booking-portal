@@ -15,6 +15,9 @@ import { AmenityDefinition } from '../modules/hotels/entities/amenity-definition
 import { OnboardingSession } from '../modules/hotels/entities/onboarding-session.entity';
 import { ImageMetadata } from '../modules/hotels/entities/image-metadata.entity';
 import { QualityReport } from '../modules/hotels/entities/quality-report.entity';
+// Auth entities
+import { HotelUserRole } from '../modules/auth/entities/hotel-user-role.entity';
+import { OnboardingAuditLog } from '../modules/auth/entities/onboarding-audit-log.entity';
 
 @Injectable()
 export class DatabaseConfig implements TypeOrmOptionsFactory {
@@ -42,8 +45,11 @@ export class DatabaseConfig implements TypeOrmOptionsFactory {
         OnboardingSession,
         ImageMetadata,
         QualityReport,
+        // Auth entities
+        HotelUserRole,
+        OnboardingAuditLog,
       ],
-      synchronize: this.configService.get('NODE_ENV') === 'development',
+      synchronize: true, // Temporarily enable to create missing tables
       logging: false, // Disable SQL logging to reduce console noise
       ssl: this.configService.get('NODE_ENV') === 'production' ? { rejectUnauthorized: false } : false,
     };
@@ -72,6 +78,9 @@ export const dataSourceOptions: DataSourceOptions = {
     OnboardingSession,
     ImageMetadata,
     QualityReport,
+    // Auth entities
+    HotelUserRole,
+    OnboardingAuditLog,
   ],
   migrations: ['src/migrations/*.ts'],
   synchronize: false,

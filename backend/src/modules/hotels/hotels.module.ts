@@ -1,8 +1,6 @@
 import { Module, forwardRef } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { EventEmitterModule } from '@nestjs/event-emitter';
-import { HotelsService } from './hotels.service';
-import { HotelsController } from './hotels.controller';
 import { Hotel } from './entities/hotel.entity';
 import { AmenityDefinition } from './entities/amenity-definition.entity';
 import { EnhancedHotel } from './entities/enhanced-hotel.entity';
@@ -15,12 +13,14 @@ import { BusinessFeaturesService } from './services/business-features.service';
 import { RoomEnhancementService } from './services/room-enhancement.service';
 import { PropertyInformationController } from './controllers/property-information.controller';
 import { BusinessFeaturesController } from './controllers/business-features.controller';
-import { OnboardingController } from './controllers/onboarding.controller';
 import { IntegratedOnboardingController } from './controllers/integrated-onboarding.controller';
 import { QualityAssuranceController } from './controllers/quality-assurance.controller';
 import { DataIntegrationController } from './controllers/data-integration.controller';
 import { PerformanceController } from './controllers/performance.controller';
+import { MigrationController } from './controllers/migration.controller';
 import { OnboardingService } from './services/onboarding.service';
+import { MigrationService } from './services/migration.service';
+import { DatabaseCleanupService } from './services/database-cleanup.service';
 import { QualityAssuranceService } from './services/quality-assurance.service';
 import { DataIntegrationService } from './services/data-integration.service';
 import { EnhancedDataService } from './services/enhanced-data.service';
@@ -55,8 +55,8 @@ import { Room } from '../rooms/entities/room.entity';
     UsersModule,
     forwardRef(() => AuthModule), // Use forwardRef to avoid circular dependency
   ],
-  controllers: [HotelsController, PropertyInformationController, BusinessFeaturesController, OnboardingController, IntegratedOnboardingController, QualityAssuranceController, DataIntegrationController, PerformanceController],
-  providers: [HotelsService, AmenityService, ImageManagementService, PropertyInformationService, BusinessFeaturesService, RoomEnhancementService, OnboardingService, QualityAssuranceService, DataIntegrationService, EnhancedDataService, PerformanceOptimizedImageService, PerformanceCacheService, MobileOptimizationService, SystemIntegrationListener, InMemoryCacheService],
-  exports: [HotelsService, AmenityService, ImageManagementService, PropertyInformationService, BusinessFeaturesService, RoomEnhancementService, OnboardingService, QualityAssuranceService, DataIntegrationService, EnhancedDataService, PerformanceOptimizedImageService, PerformanceCacheService, MobileOptimizationService],
+  controllers: [PropertyInformationController, BusinessFeaturesController, IntegratedOnboardingController, QualityAssuranceController, DataIntegrationController, PerformanceController, MigrationController],
+  providers: [AmenityService, ImageManagementService, PropertyInformationService, BusinessFeaturesService, RoomEnhancementService, OnboardingService, QualityAssuranceService, DataIntegrationService, EnhancedDataService, PerformanceOptimizedImageService, PerformanceCacheService, MobileOptimizationService, SystemIntegrationListener, InMemoryCacheService, MigrationService, DatabaseCleanupService],
+  exports: [AmenityService, ImageManagementService, PropertyInformationService, BusinessFeaturesService, RoomEnhancementService, OnboardingService, QualityAssuranceService, DataIntegrationService, EnhancedDataService, PerformanceOptimizedImageService, PerformanceCacheService, MobileOptimizationService, MigrationService, DatabaseCleanupService],
 })
 export class HotelsModule { }

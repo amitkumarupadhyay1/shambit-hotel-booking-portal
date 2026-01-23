@@ -42,7 +42,7 @@ export default function AuthDebugPage() {
                 <p>Authenticated: {isAuthenticated ? 'Yes' : 'No'}</p>
                 <p>Loading: {isLoading ? 'Yes' : 'No'}</p>
                 <p>User: {user ? user.email : 'None'}</p>
-                <p>Role: {user ? user.role : 'None'}</p>
+                <p>Role: {user ? user.roles.join(', ') : 'None'}</p>
             </div>
 
             {!isAuthenticated ? (

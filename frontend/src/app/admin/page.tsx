@@ -20,7 +20,7 @@ export default function AdminDashboard() {
     });
 
     useEffect(() => {
-        if (!isLoading && (!user || user.role !== 'owner')) {
+        if (!isLoading && (!user || !user.roles.includes(UserRole.ADMIN))) {
             router.push('/admin/login');
             return;
         }
@@ -39,7 +39,7 @@ export default function AdminDashboard() {
         );
     }
 
-    if (!user || user.role !== 'owner') {
+    if (!user || !user.roles.includes(UserRole.ADMIN)) {
         return null;
     }
 

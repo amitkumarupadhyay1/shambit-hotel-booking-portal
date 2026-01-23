@@ -48,6 +48,21 @@ export class OnboardingService {
   ) {}
 
   /**
+   * Get user's active onboarding session (if any)
+   */
+  async getUserActiveSession(userId: string): Promise<OnboardingSession | null> {
+    return await this.onboardingSessionRepository.findOne({
+      where: {
+        userId,
+        sessionStatus: SessionStatus.ACTIVE,
+      },
+      order: {
+        createdAt: 'DESC', // Get the most recent active session
+      },
+    });
+  }
+
+  /**
    * Create a new onboarding session for a hotel
    * Requirements: 6.1, 6.4 - Mobile-first onboarding with offline support
    * Requirements: 10.1 - Role-based access control
@@ -571,9 +586,86 @@ export class OnboardingService {
   }
 
   /**
-   * Get required permission for a specific onboarding step
-   * Requirements: 10.1 - Step-specific permission enforcement
+   * Clean up expired sessions
+   * Requirements: 6.1.5 - Implement session cleanup for expired sessions
    */
+  async cleanupExpiredSessions(): Promise<{ cleanedCount: number; message: string }> {
+    this.logger.log('Starting cleanup of expired onboarding sessions');
+
+    try {
+      // Find all expired sessions that are still marked as ACTIVE
+      const expiredSessions = await this.onboardingSessionRepository.find({
+        where: {
+          sessionStatus: SessionStatus.ACTIVE,
+        },
+      });
+
+      // Filter to only truly expired sessions
+      const sessionsToCleanup = expiredSessions.filter(session => session.isExpired());
+
+      if (sessionsToCleanup.length === 0) {
+        this.logger.log('No expired sessions found to cleanup');
+        return {
+          cleanedCount: 0,
+          message: 'No expired sessions found'
+        };
+      }
+
+      // Mark expired sessions as ABANDONED
+      const sessionIds = sessionsToCleanup.map(session => session.id);
+      
+      const updateResult = await this.onboardingSessionRepository
+        .createQueryBuilder()
+        .update(OnboardingSession)
+        .set({ 
+          sessionStatus: SessionStatus.ABANDONED,
+          updatedAt: new Date()
+        })
+        .where('id IN (:...sessionIds)', { sessionIds })
+        .execute();
+
+      // Log cleanup for audit purposes
+      for (const session of sessionsToCleanup) {
+        await this.auditService.logSessionExpired(
+          session.userId,
+          session.enhancedHotelId,
+          session.id,
+          { 
+            expiredAt: session.expiresAt,
+            cleanedAt: new Date(),
+            reason: 'Automatic cleanup of expired session'
+          }
+        );
+      }
+
+      this.logger.log(`Cleaned up ${updateResult.affected} expired onboarding sessions`);
+
+      return {
+        cleanedCount: updateResult.affected || 0,
+        message: `Successfully cleaned up ${updateResult.affected} expired sessions`
+      };
+
+    } catch (error) {
+      this.logger.error('Failed to cleanup expired sessions:', error);
+      throw new Error(`Session cleanup failed: ${error.message}`);
+    }
+  }
+
+  /**
+   * Schedule automatic cleanup of expired sessions
+   * This method can be called by a cron job or scheduler
+   */
+  async scheduleSessionCleanup(): Promise<void> {
+    try {
+      const result = await this.cleanupExpiredSessions();
+      if (result.cleanedCount > 0) {
+        this.logger.log(`Scheduled cleanup completed: ${result.message}`);
+      }
+    } catch (error) {
+      this.logger.error('Scheduled session cleanup failed:', error);
+      // Don't throw error to prevent breaking the scheduler
+    }
+  }
   private getStepPermission(stepId: string): OnboardingPermission {
     switch (stepId) {
       case 'amenities':

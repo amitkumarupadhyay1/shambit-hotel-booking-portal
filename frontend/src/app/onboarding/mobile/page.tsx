@@ -1,11 +1,10 @@
 'use client';
 
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { toast } from 'sonner';
 import { useAuth } from '@/hooks/use-auth';
 import { UserRole } from '@/types/auth';
-import { hotelsApi } from '@/lib/api/hotels';
 import { 
   MobileOnboardingIntegration,
   StepData, 
@@ -17,8 +16,10 @@ import { ArrowLeft } from 'lucide-react';
 
 export default function MobileOnboardingPage() {
   const router = useRouter();
-  const { user, isAuthenticated, isLoading, hasRole } = useAuth();
+  const { isAuthenticated, isLoading, hasRole } = useAuth();
   const [sessionId, setSessionId] = useState<string | null>(null);
+  const sessionInitializedRef = useRef(false);
+  const offlineWarningShownRef = useRef(false);
 
   // Authentication check
   if (isLoading) {
@@ -65,95 +66,124 @@ export default function MobileOnboardingPage() {
     );
   }
 
-  // Mobile wizard event handlers
-  const handleStepComplete = async (stepId: string, stepData: StepData): Promise<void> => {
-    try {
-      if (sessionId) {
-        // Update step data on server
-        await fetch(`/api/hotels/onboarding/sessions/${sessionId}/steps`, {
-          method: 'PUT',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ stepId, stepData })
-        });
-
-        // Mark step as completed
-        await fetch(`/api/hotels/onboarding/sessions/${sessionId}/steps/${stepId}/complete`, {
-          method: 'POST'
-        });
+  // Mobile wizard event handlers with offline handling
+  const handleStepComplete = useCallback(async (stepId: string, stepData: StepData): Promise<void> => {
+    if (!sessionId) {
+      if (!offlineWarningShownRef.current) {
+        toast.warning('Working offline. Your progress will sync when connected.');
+        offlineWarningShownRef.current = true;
       }
+      return;
+    }
+
+    try {
+      // Update step data using integrated onboarding API
+      await fetch(`/api/hotels/integrated-onboarding/sessions/${sessionId}/steps/${stepId}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(stepData)
+      });
     } catch (error) {
       console.error('Failed to complete step:', error);
       // Don't throw - let offline sync handle it
     }
-  };
+  }, [sessionId]);
 
-  const handleComplete = async (allData: OnboardingDraft): Promise<void> => {
+  const handleComplete = useCallback(async (allData: OnboardingDraft): Promise<void> => {
+    if (!sessionId) {
+      toast.error('Cannot complete onboarding offline. Please check your connection.');
+      throw new Error('No session available');
+    }
+
     try {
-      if (sessionId) {
-        const response = await fetch(`/api/hotels/onboarding/sessions/${sessionId}/complete`, {
-          method: 'POST'
-        });
+      const response = await fetch(`/api/hotels/integrated-onboarding/sessions/${sessionId}/complete`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          finalReview: true,
+          publishImmediately: true
+        })
+      });
 
-        if (response.ok) {
-          toast.success('Onboarding completed successfully!');
-          router.push('/seller/dashboard');
-        } else {
-          throw new Error('Failed to complete onboarding');
-        }
+      if (response.ok) {
+        toast.success('Onboarding completed successfully!');
+        router.push('/seller/dashboard');
+      } else {
+        throw new Error('Failed to complete onboarding');
       }
     } catch (error) {
       console.error('Failed to complete onboarding:', error);
       toast.error('Failed to complete onboarding. Please try again.');
       throw error;
     }
-  };
+  }, [sessionId, router]);
 
-  const handleDraftSave = async (draftData: OnboardingDraft): Promise<void> => {
+  const handleDraftSave = useCallback(async (draftData: OnboardingDraft): Promise<void> => {
+    if (!sessionId) {
+      return; // Silent fail for drafts - offline sync will handle
+    }
+
     try {
-      if (sessionId) {
-        await fetch(`/api/hotels/onboarding/sessions/${sessionId}/draft`, {
-          method: 'PUT',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ draftData })
-        });
-      }
+      // Fixed: Use consistent API namespace
+      await fetch(`/api/hotels/integrated-onboarding/sessions/${sessionId}/draft`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ draftData })
+      });
     } catch (error) {
       console.error('Failed to save draft:', error);
       // Don't throw - offline sync will handle it
     }
-  };
+  }, [sessionId]);
 
-  const handleDraftLoad = async (): Promise<OnboardingDraft> => {
+  const handleDraftLoad = useCallback(async (): Promise<OnboardingDraft> => {
+    if (!sessionId) {
+      return {};
+    }
+
     try {
-      if (sessionId) {
-        const response = await fetch(`/api/hotels/onboarding/sessions/${sessionId}/draft`);
-        if (response.ok) {
-          const result = await response.json();
-          return result.data || {};
-        }
+      const response = await fetch(`/api/hotels/integrated-onboarding/sessions/${sessionId}/status`);
+      if (response.ok) {
+        const result = await response.json();
+        return result.data?.draftData || {};
       }
       return {};
     } catch (error) {
       console.error('Failed to load draft:', error);
       return {};
     }
-  };
+  }, [sessionId]);
 
-  // Initialize session on mount
+  // Initialize session on mount - protected against double initialization
   React.useEffect(() => {
+    if (!isAuthenticated || !hasRole(UserRole.SELLER)) return;
+    if (sessionInitializedRef.current) return;
+
+    sessionInitializedRef.current = true;
+
     const initializeSession = async () => {
       try {
-        // For demo purposes, create a session with a temporary hotel ID
-        // In real implementation, this would come from the user's hotel selection
-        const response = await fetch('/api/hotels/onboarding/sessions', {
+        // Create session using the enhanced integrated onboarding system
+        const response = await fetch('/api/hotels/integrated-onboarding/sessions', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ hotelId: 'temp-hotel-id' })
+          body: JSON.stringify({ 
+            deviceInfo: {
+              type: 'mobile',
+              userAgent: navigator.userAgent,
+              screenSize: {
+                width: window.screen.width,
+                height: window.screen.height
+              }
+            }
+          })
         });
 
         if (response.ok) {
           const result = await response.json();
           setSessionId(result.data.sessionId);
+        } else {
+          console.warn('Session creation failed, continuing in offline mode');
         }
       } catch (error) {
         console.error('Failed to initialize session:', error);
@@ -161,9 +191,7 @@ export default function MobileOnboardingPage() {
       }
     };
 
-    if (isAuthenticated && hasRole(UserRole.SELLER)) {
-      initializeSession();
-    }
+    initializeSession();
   }, [isAuthenticated, hasRole]);
 
   return (

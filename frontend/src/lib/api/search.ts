@@ -66,8 +66,8 @@ export interface HotelDetailDto {
 
 export const searchApi = {
   searchHotels: (params: HotelSearchParams) => 
-    apiClient.get<PaginatedHotelSearchResult>('/hotels/search', { params }),
+    apiClient.get('/hotels/search', { params }) as Promise<{ data: PaginatedHotelSearchResult }>,
   
   getHotelDetails: (id: string, params?: { checkInDate?: string; checkOutDate?: string; guests?: number }) =>
-    apiClient.get<HotelDetailDto>(`/search/hotels/${id}/availability`, { params }),
+    apiClient.get(`/search/hotels/${id}/availability`, { params }) as Promise<{ data: HotelDetailDto }>,
 };

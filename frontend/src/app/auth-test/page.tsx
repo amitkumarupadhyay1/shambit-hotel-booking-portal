@@ -1,169 +1,90 @@
 'use client';
 
 import { useState } from 'react';
+import { useAuth } from '@/hooks/use-auth';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { authApi } from '@/lib/api/auth';
-import { getApiUrl } from '@/lib/api/config';
-import { UserRole } from '@/types/auth';
 
 export default function AuthTestPage() {
-    const [results, setResults] = useState<string[]>([]);
-    const [isLoading, setIsLoading] = useState(false);
-    const [email, setEmail] = useState('');
-    const [password, setPassword] = useState('');
+    const { user, isAuthenticated, isLoading, login, register, logout, checkAuth } = useAuth();
+    const [email, setEmail] = useState('owner@test.com');
+    const [password, setPassword] = useState('TestPass123!');
+    const [name, setName] = useState('Test Hotel Owner');
 
-    const log = (message: string) => {
-        console.log(message);
-        setResults(prev => [...prev, message]);
-    };
-
-    const clearResults = () => {
-        setResults([]);
-    };
-
-    const testApiConnection = async () => {
-        setIsLoading(true);
-        clearResults();
-        
+    const handleLogin = async () => {
         try {
-            log('🔍 Testing API Connection...');
-            log(`API URL: ${getApiUrl()}`);
-            
-            // Test health endpoint
-            const response = await fetch(getApiUrl().replace('/api/v1', '/health'));
-            const data = await response.json();
-            log('✅ Health check successful: ' + JSON.stringify(data));
-            
+            await login({ email, password });
         } catch (error) {
-            log('❌ Health check failed: ' + (error as Error).message);
-        } finally {
-            setIsLoading(false);
+            console.error('Login failed:', error);
         }
     };
 
-    const testRegistration = async () => {
-        if (!email || !password) {
-            log('❌ Please enter email and password');
-            return;
-        }
-
-        setIsLoading(true);
-        
+    const handleRegister = async () => {
         try {
-            log('🔍 Testing Registration...');
-            
-            const registerData = {
-                name: 'Test User',
-                email: email,
-                password: password,
-                phone: '+1234567890',
-                role: UserRole.BUYER
-            };
-            
-            const response = await authApi.register(registerData);
-            log('✅ Registration successful: ' + JSON.stringify(response.user));
-            
-        } catch (error: any) {
-            log('❌ Registration failed: ' + (error.response?.data?.message || error.message));
-        } finally {
-            setIsLoading(false);
+            await register({ name, email, password, role: 'SELLER' as any });
+        } catch (error) {
+            console.error('Registration failed:', error);
         }
     };
 
-    const testLogin = async () => {
-        if (!email || !password) {
-            log('❌ Please enter email and password');
-            return;
-        }
-
-        setIsLoading(true);
-        
+    const handleCheckAuth = async () => {
         try {
-            log('🔍 Testing Login...');
-            
-            const response = await authApi.login({ email, password });
-            log('✅ Login successful: ' + JSON.stringify(response.user));
-            
-            // Test protected route
-            log('🔍 Testing protected route...');
-            const profile = await authApi.getProfile();
-            log('✅ Profile fetch successful: ' + JSON.stringify(profile));
-            
-        } catch (error: any) {
-            log('❌ Login failed: ' + (error.response?.data?.message || error.message));
-        } finally {
-            setIsLoading(false);
+            await checkAuth();
+        } catch (error) {
+            console.error('Auth check failed:', error);
         }
     };
 
     return (
-        <div className="container mx-auto p-4 max-w-2xl">
+        <div className="container mx-auto p-4 space-y-4">
             <Card>
                 <CardHeader>
-                    <CardTitle>Authentication Test Page</CardTitle>
+                    <CardTitle>Authentication Test</CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-4">
+                    <div>
+                        <strong>Status:</strong> {isLoading ? 'Loading...' : isAuthenticated ? 'Authenticated' : 'Not Authenticated'}
+                    </div>
+                    
+                    {user && (
+                        <div>
+                            <strong>User:</strong> {user.name} ({user.email}) - Roles: {user.roles.join(', ')}
+                        </div>
+                    )}
+
                     <div className="space-y-2">
                         <Input
-                            type="email"
+                            placeholder="Name"
+                            value={name}
+                            onChange={(e) => setName(e.target.value)}
+                        />
+                        <Input
                             placeholder="Email"
                             value={email}
                             onChange={(e) => setEmail(e.target.value)}
                         />
                         <Input
                             type="password"
-                            placeholder="Password (min 8 chars, uppercase, lowercase, number, special)"
+                            placeholder="Password"
                             value={password}
                             onChange={(e) => setPassword(e.target.value)}
                         />
                     </div>
-                    
-                    <div className="flex gap-2 flex-wrap">
-                        <Button 
-                            onClick={testApiConnection} 
-                            disabled={isLoading}
-                            variant="outline"
-                        >
-                            Test API Connection
+
+                    <div className="flex gap-2">
+                        <Button onClick={handleLogin} disabled={isLoading}>
+                            Login
                         </Button>
-                        <Button 
-                            onClick={testRegistration} 
-                            disabled={isLoading}
-                            variant="outline"
-                        >
-                            Test Registration
+                        <Button onClick={handleRegister} disabled={isLoading}>
+                            Register
                         </Button>
-                        <Button 
-                            onClick={testLogin} 
-                            disabled={isLoading}
-                            variant="outline"
-                        >
-                            Test Login
+                        <Button onClick={handleCheckAuth} disabled={isLoading}>
+                            Check Auth
                         </Button>
-                        <Button 
-                            onClick={clearResults} 
-                            disabled={isLoading}
-                            variant="outline"
-                        >
-                            Clear Results
+                        <Button onClick={logout} disabled={isLoading}>
+                            Logout
                         </Button>
-                    </div>
-                    
-                    <div className="bg-gray-100 p-4 rounded-lg max-h-96 overflow-y-auto">
-                        <h3 className="font-semibold mb-2">Test Results:</h3>
-                        {results.length === 0 ? (
-                            <p className="text-gray-500">No tests run yet</p>
-                        ) : (
-                            <div className="space-y-1">
-                                {results.map((result, index) => (
-                                    <div key={index} className="text-sm font-mono">
-                                        {result}
-                                    </div>
-                                ))}
-                            </div>
-                        )}
                     </div>
                 </CardContent>
             </Card>

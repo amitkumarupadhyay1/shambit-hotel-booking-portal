@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { toast } from 'sonner';
 import { useAuth } from '@/hooks/use-auth';
@@ -8,14 +8,16 @@ import { UserRole } from '@/types/auth';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Loader2, AlertCircle } from 'lucide-react';
+import apiClient from '@/lib/api/client';
+import OnboardingSessionManager, { OnboardingSession } from '@/lib/onboarding-session-manager';
 
 // Import all onboarding components
-import MobileWizard, { 
-  OnboardingStep, 
-  StepData, 
-  OnboardingDraft, 
+import MobileWizard, {
+  OnboardingStep,
+  StepData,
+  OnboardingDraft,
   ValidationResult,
-  StepComponentProps 
+  StepComponentProps
 } from './mobile-wizard';
 import { AmenitySelection, PropertyType } from './amenity-selection';
 import { ImageUpload, ImageCategory } from './image-upload';
@@ -24,36 +26,24 @@ import { RoomConfigurationForm } from './room-configuration-form';
 import { BusinessFeaturesForm } from './business-features-form';
 import { QualityAssuranceDashboard } from './quality-assurance-dashboard';
 
-// API imports
-import { hotelsApi } from '@/lib/api/hotels';
-
 // Types for integrated flow
-interface OnboardingSession {
-  id: string;
-  hotelId: string;
-  currentStep: number;
-  completedSteps: string[];
-  qualityScore: number;
-  expiresAt: string;
-}
-
 interface IntegratedOnboardingFlowProps {
   hotelId?: string;
   className?: string;
 }
 
 // Step component wrappers that integrate with the mobile wizard
-const AmenityStepComponent: React.FC<StepComponentProps> = ({ 
-  data, 
-  onDataChange, 
-  onValidationChange, 
-  isActive, 
-  isOffline 
+const AmenityStepComponent: React.FC<StepComponentProps> = ({
+  data,
+  onDataChange,
+  onValidationChange,
+  isActive,
+  isOffline
 }) => {
   const handleSelectionChange = useCallback((amenities: string[]) => {
     const stepData = { selectedAmenities: amenities };
     onDataChange(stepData);
-    
+
     // Validate amenity selection
     const validation: ValidationResult = {
       isValid: amenities.length > 0,
@@ -74,74 +64,168 @@ const AmenityStepComponent: React.FC<StepComponentProps> = ({
   );
 };
 
-const ImageStepComponent: React.FC<StepComponentProps> = ({ 
-  data, 
-  onDataChange, 
-  onValidationChange, 
-  isActive, 
-  isOffline 
+const ImageStepComponent: React.FC<StepComponentProps> = ({
+  data,
+  onDataChange,
+  onValidationChange,
+  isActive,
+  isOffline
 }) => {
-  const handleUploadComplete = useCallback((images: any[]) => {
-    const stepData = { images };
-    onDataChange(stepData);
-    
-    // Validate image uploads
+  console.log('ImageStepComponent rendered with:', { data, isActive, isOffline });
+
+  // Set initial validation when step loads or data changes
+  useEffect(() => {
+    console.log('ImageStepComponent - Initial validation effect triggered');
+    const images = data.images || [];
+    const initialValidation: ValidationResult = {
+      isValid: images.length > 0,
+      errors: images.length === 0 ? ['Please upload at least one image'] : [],
+      warnings: images.length > 0 && images.length < 5
+        ? ['Consider uploading more images for better presentation'] : []
+    };
+    console.log('Setting initial validation for images step:', initialValidation, 'images:', images);
+    onValidationChange(initialValidation);
+  }, [data.images, onValidationChange]);
+
+  // Also trigger validation when the component becomes active
+  useEffect(() => {
+    console.log('ImageStepComponent - Active state effect triggered, isActive:', isActive);
+    if (isActive) {
+      const images = data.images || [];
+      const validation: ValidationResult = {
+        isValid: images.length > 0,
+        errors: images.length === 0 ? ['Please upload at least one image'] : [],
+        warnings: images.length > 0 && images.length < 5
+          ? ['Consider uploading more images for better presentation'] : []
+      };
+      console.log('Step became active, setting validation:', validation);
+      onValidationChange(validation);
+    }
+  }, [isActive, data.images, onValidationChange]);
+
+  // Force validation on mount
+  useEffect(() => {
+    console.log('ImageStepComponent - Mount effect triggered');
+    const images = data.images || [];
     const validation: ValidationResult = {
       isValid: images.length > 0,
       errors: images.length === 0 ? ['Please upload at least one image'] : [],
-      warnings: images.length < 5 ? ['Consider uploading more images for better presentation'] : []
+      warnings: images.length > 0 && images.length < 5
+        ? ['Consider uploading more images for better presentation'] : []
     };
+    console.log('Component mounted, forcing validation:', validation);
+    // Use setTimeout to ensure this runs after other effects
+    setTimeout(() => onValidationChange(validation), 0);
+  }, []); // Empty dependency array - runs only on mount
+
+  const handleUploadProgress = useCallback((progress: any[]) => {
+    console.log('Upload progress received:', progress);
+    console.log('ImageStepComponent - handleUploadProgress called with progress length:', progress.length);
+    
+    // Extract completed images and convert them to the expected format
+    const completedImages = progress
+      .filter(p => p.status === 'completed')
+      .map(p => ({
+        id: p.id,
+        url: p.url,
+        qualityScore: p.qualityCheck?.score || 0,
+        category: ImageCategory.EXTERIOR,
+        uploadedAt: new Date().toISOString()
+      }));
+    
+    console.log('Completed images:', completedImages.length, completedImages);
+    
+    // Always update the data with the properly formatted images
+    const stepData = { images: completedImages };
+    console.log('ImageStepComponent - Calling onDataChange with:', stepData);
+    onDataChange(stepData);
+
+    // Update validation based on completed uploads
+    const validation: ValidationResult = {
+      isValid: completedImages.length > 0,
+      errors: completedImages.length === 0 ? ['Please upload at least one image'] : [],
+      warnings: completedImages.length < 5 ? ['Consider uploading more images for better presentation'] : []
+    };
+    console.log('ImageStepComponent - Calling onValidationChange with:', validation);
+    onValidationChange(validation);
+  }, [onDataChange, onValidationChange]);
+
+  const handleUploadComplete = useCallback((images: any[]) => {
+    console.log('Upload complete received:', images);
+    
+    // Convert uploaded images to the expected format
+    const formattedImages = images.map(img => ({
+      id: img.id,
+      url: img.url,
+      qualityScore: img.qualityScore || 0,
+      category: img.category || ImageCategory.EXTERIOR,
+      uploadedAt: img.uploadedAt || new Date().toISOString()
+    }));
+    
+    const stepData = { images: formattedImages };
+    onDataChange(stepData);
+
+    // Validate image uploads
+    const validation: ValidationResult = {
+      isValid: formattedImages.length > 0,
+      errors: formattedImages.length === 0 ? ['Please upload at least one image'] : [],
+      warnings: formattedImages.length < 5 ? ['Consider uploading more images for better presentation'] : []
+    };
+    console.log('Setting final validation:', validation);
     onValidationChange(validation);
   }, [onDataChange, onValidationChange]);
 
   return (
-    <ImageUpload
-      category="EXTERIOR"
-      maxFiles={20}
-      maxFileSize={5 * 1024 * 1024} // 5MB
-      qualityStandards={{
-        minResolution: { width: 1920, height: 1080 },
-        acceptableAspectRatios: [16/9, 4/3, 3/2],
-        blurThreshold: 0.8,
-        brightnessRange: { min: 0.2, max: 0.9 },
-        contrastRange: { min: 0.3, max: 0.9 }
-      }}
-      onUploadProgress={() => {}}
-      onUploadComplete={handleUploadComplete}
-      onQualityCheck={() => {}}
-    />
+    <div className="space-y-4">
+      <div className="text-sm text-gray-600 mb-4">
+        Upload high-quality images of your property. At least one image is required to proceed.
+      </div>
+      <ImageUpload
+        category={ImageCategory.EXTERIOR}
+        maxFiles={20}
+        maxFileSize={5 * 1024 * 1024} // 5MB
+        qualityStandards={{
+          minResolution: { width: 1920, height: 1080 },
+          acceptableAspectRatios: [16 / 9, 4 / 3, 3 / 2],
+          maxFileSize: 5 * 1024 * 1024
+        }}
+        onUploadProgress={handleUploadProgress}
+        onUploadComplete={handleUploadComplete}
+        onQualityCheck={() => { }}
+      />
+    </div>
   );
 };
 
-const PropertyInfoStepComponent: React.FC<StepComponentProps> = ({ 
-  data, 
-  onDataChange, 
-  onValidationChange, 
-  isActive, 
-  isOffline 
+const PropertyInfoStepComponent: React.FC<StepComponentProps> = ({
+  data,
+  onDataChange,
+  onValidationChange,
+  isActive,
+  isOffline
 }) => {
   const handleDataChange = useCallback((propertyData: any) => {
     onDataChange(propertyData);
-    
+
     // Validate property information
     const validation: ValidationResult = {
       isValid: !!(propertyData.description && propertyData.policies),
       errors: [],
       warnings: []
     };
-    
+
     if (!propertyData.description || propertyData.description.length < 50) {
       validation.errors.push('Property description must be at least 50 characters');
     }
-    
+
     if (!propertyData.policies) {
       validation.errors.push('Hotel policies are required');
     }
-    
+
     if (!propertyData.locationDetails) {
       validation.warnings.push('Adding location details helps guests find your property');
     }
-    
+
     validation.isValid = validation.errors.length === 0;
     onValidationChange(validation);
   }, [onDataChange, onValidationChange]);
@@ -154,23 +238,27 @@ const PropertyInfoStepComponent: React.FC<StepComponentProps> = ({
   );
 };
 
-const RoomStepComponent: React.FC<StepComponentProps> = ({ 
-  data, 
-  onDataChange, 
-  onValidationChange, 
-  isActive, 
-  isOffline 
+const RoomStepComponent: React.FC<StepComponentProps> = ({
+  data,
+  onDataChange,
+  onValidationChange,
+  isActive,
+  isOffline
 }) => {
+  if (!data.hotelId) {
+    return <Loader2 className="animate-spin" />;
+  }
+
   const handleRoomDataChange = useCallback((roomData: any) => {
     onDataChange(roomData);
-    
+
     // Validate room configuration
     const validation: ValidationResult = {
       isValid: !!(roomData.rooms && roomData.rooms.length > 0),
       errors: [],
       warnings: []
     };
-    
+
     if (!roomData.rooms || roomData.rooms.length === 0) {
       validation.errors.push('At least one room type is required');
     } else {
@@ -184,37 +272,41 @@ const RoomStepComponent: React.FC<StepComponentProps> = ({
         }
       });
     }
-    
+
     validation.isValid = validation.errors.length === 0;
     onValidationChange(validation);
   }, [onDataChange, onValidationChange]);
 
   return (
     <RoomConfigurationForm
-      hotelId={data.hotelId || 'temp-hotel-id'}
+      hotelId={data.hotelId}
       initialData={data}
       onDataChange={handleRoomDataChange}
     />
   );
 };
 
-const BusinessFeaturesStepComponent: React.FC<StepComponentProps> = ({ 
-  data, 
-  onDataChange, 
-  onValidationChange, 
-  isActive, 
-  isOffline 
+const BusinessFeaturesStepComponent: React.FC<StepComponentProps> = ({
+  data,
+  onDataChange,
+  onValidationChange,
+  isActive,
+  isOffline
 }) => {
+  if (!data.hotelId) {
+    return <Loader2 className="animate-spin" />;
+  }
+
   const handleBusinessDataChange = useCallback((businessData: any) => {
     onDataChange(businessData);
-    
+
     // Business features are optional, so validation is lenient
     const validation: ValidationResult = {
       isValid: true,
       errors: [],
       warnings: []
     };
-    
+
     if (businessData.meetingRooms && Array.isArray(businessData.meetingRooms)) {
       businessData.meetingRooms.forEach((room: any) => {
         if (!room.name || !room.capacity) {
@@ -222,11 +314,11 @@ const BusinessFeaturesStepComponent: React.FC<StepComponentProps> = ({
         }
       });
     }
-    
+
     if (businessData.connectivity && !businessData.connectivity.wifiSpeed) {
       validation.warnings.push('Consider providing WiFi speed information for business travelers');
     }
-    
+
     validation.isValid = validation.errors.length === 0;
     onValidationChange(validation);
   }, [onDataChange, onValidationChange]);
@@ -237,20 +329,24 @@ const BusinessFeaturesStepComponent: React.FC<StepComponentProps> = ({
 
   return (
     <BusinessFeaturesForm
-      hotelId={data.hotelId || 'temp-hotel-id'}
+      hotelId={data.hotelId}
       initialData={data as any} // Cast for mobile integration compatibility
       onSave={handleBusinessSave} // Use save handler that calls data change
     />
   );
 };
 
-const QualityReviewStepComponent: React.FC<StepComponentProps> = ({ 
-  data, 
-  onDataChange, 
-  onValidationChange, 
-  isActive, 
-  isOffline 
+const QualityReviewStepComponent: React.FC<StepComponentProps> = ({
+  data,
+  onDataChange,
+  onValidationChange,
+  isActive,
+  isOffline
 }) => {
+  if (!data.hotelId) {
+    return <Loader2 className="animate-spin" />;
+  }
+
   useEffect(() => {
     // Quality review step is always valid - it's just for review
     onValidationChange({
@@ -262,7 +358,7 @@ const QualityReviewStepComponent: React.FC<StepComponentProps> = ({
 
   return (
     <QualityAssuranceDashboard
-      hotelId={data.hotelId || 'temp-hotel-id'}
+      hotelId={data.hotelId}
     />
   );
 };
@@ -275,13 +371,7 @@ const createOnboardingSteps = (): OnboardingStep[] => [
     description: 'Select amenities that make your property special',
     component: AmenityStepComponent,
     validation: {
-      validate: (data: StepData) => ({
-        isValid: !!(data.selectedAmenities && data.selectedAmenities.length > 0),
-        errors: !data.selectedAmenities || data.selectedAmenities.length === 0 
-          ? ['Please select at least one amenity'] 
-          : [],
-        warnings: []
-      })
+      validate: () => ({ isValid: true, errors: [], warnings: [] })
     },
     isOptional: false,
     estimatedTime: 5
@@ -292,13 +382,7 @@ const createOnboardingSteps = (): OnboardingStep[] => [
     description: 'Upload high-quality photos of your property',
     component: ImageStepComponent,
     validation: {
-      validate: (data: StepData) => ({
-        isValid: !!(data.images && data.images.length > 0),
-        errors: !data.images || data.images.length === 0 
-          ? ['Please upload at least one image'] 
-          : [],
-        warnings: []
-      })
+      validate: () => ({ isValid: true, errors: [], warnings: [] })
     },
     isOptional: false,
     estimatedTime: 10
@@ -309,11 +393,7 @@ const createOnboardingSteps = (): OnboardingStep[] => [
     description: 'Provide detailed information about your property',
     component: PropertyInfoStepComponent,
     validation: {
-      validate: (data: StepData) => ({
-        isValid: !!(data.description && data.policies),
-        errors: [],
-        warnings: []
-      })
+      validate: () => ({ isValid: true, errors: [], warnings: [] })
     },
     isOptional: false,
     estimatedTime: 8
@@ -324,13 +404,7 @@ const createOnboardingSteps = (): OnboardingStep[] => [
     description: 'Set up your room types and details',
     component: RoomStepComponent,
     validation: {
-      validate: (data: StepData) => ({
-        isValid: !!(data.rooms && data.rooms.length > 0),
-        errors: !data.rooms || data.rooms.length === 0 
-          ? ['At least one room type is required'] 
-          : [],
-        warnings: []
-      })
+      validate: () => ({ isValid: true, errors: [], warnings: [] })
     },
     isOptional: false,
     estimatedTime: 12
@@ -363,110 +437,262 @@ export const IntegratedOnboardingFlow: React.FC<IntegratedOnboardingFlowProps> =
   hotelId,
   className
 }) => {
+  console.log('IntegratedOnboardingFlow - Component rendered with props:', { hotelId, className });
+  
   const [session, setSession] = useState<OnboardingSession | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  
+  const [retryCount, setRetryCount] = useState(0);
+
   const router = useRouter();
-  const { user, isAuthenticated, hasRole } = useAuth();
-  
+  const { user, isAuthenticated, hasRole, isLoading: authLoading } = useAuth();
+
   const steps = createOnboardingSteps();
+  console.log('IntegratedOnboardingFlow - Created steps:', steps.map(s => ({ id: s.id, title: s.title })));
+  
+  const sessionManager = OnboardingSessionManager.getInstance();
+
+  // Subscribe to session manager updates
+  useEffect(() => {
+    const unsubscribe = sessionManager.subscribe((newSession) => {
+      setSession(newSession);
+    });
+
+    // Initialize with current session if available
+    const currentSession = sessionManager.getSession();
+    if (currentSession) {
+      setSession(currentSession);
+      setIsLoading(false);
+    }
+
+    return unsubscribe;
+  }, [sessionManager]);
+
+  // Initialize onboarding session with singleton pattern
+  const initializeSession = useCallback(async () => {
+    // Check if session already exists
+    const existingSession = sessionManager.getSession();
+    if (existingSession) {
+      setSession(existingSession);
+      setIsLoading(false);
+      return;
+    }
+
+    // Check if initialization is already in progress
+    const existingPromise = sessionManager.getInitPromise();
+    if (existingPromise) {
+      try {
+        const session = await existingPromise;
+        setSession(session);
+        setIsLoading(false);
+        return;
+      } catch (err) {
+        // Handle error from existing promise
+        console.error('Existing session initialization failed:', err);
+      }
+    }
+
+    try {
+      setIsLoading(true);
+      setError(null);
+
+      const initPromise = apiClient.post(
+        '/hotels/integrated-onboarding/sessions',
+        hotelId ? { hotelId } : undefined
+      ).then(response => {
+        const s = response.data.data;
+        const newSession: OnboardingSession = {
+          id: s.sessionId,
+          hotelId: s.hotelId,
+          currentStep: s.currentStep,
+          completedSteps: s.completedSteps,
+          qualityScore: s.qualityScore,
+          expiresAt: s.expiresAt
+        };
+        
+        sessionManager.setSession(newSession);
+        return newSession;
+      });
+
+      sessionManager.setInitPromise(initPromise);
+      
+      const newSession = await initPromise;
+      setSession(newSession);
+      setRetryCount(0); // Reset retry count on success
+      
+    } catch (err: any) {
+      console.error('Failed to initialize onboarding session:', err);
+      
+      if (err.response?.status === 429) {
+        setError('Too many requests. Please wait a moment and try again.');
+      } else {
+        setError('Failed to start onboarding. Please try again.');
+      }
+    } finally {
+      sessionManager.setInitPromise(null);
+      setIsLoading(false);
+    }
+  }, [hotelId, sessionManager]);
 
   // Initialize onboarding session
   useEffect(() => {
-    const initializeSession = async () => {
-      if (!isAuthenticated || !hasRole(UserRole.SELLER)) {
-        setError('Authentication required');
-        setIsLoading(false);
-        return;
-      }
+    if (authLoading) return;
 
-      try {
-        // Create or resume onboarding session
-        const response = await fetch('/api/hotels/onboarding/sessions', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${localStorage.getItem('token')}`
-          },
-          body: JSON.stringify({ hotelId: hotelId || 'new' })
-        });
-
-        if (!response.ok) {
-          throw new Error('Failed to create onboarding session');
-        }
-
-        const sessionData = await response.json();
-        setSession(sessionData.data);
-      } catch (err) {
-        console.error('Failed to initialize onboarding session:', err);
-        setError('Failed to start onboarding process');
-      } finally {
+    if (!isAuthenticated || !user?.roles?.includes(UserRole.SELLER)) {
+      if (!authLoading) {
         setIsLoading(false);
       }
-    };
+      return;
+    }
 
-    initializeSession();
-  }, [isAuthenticated, hasRole, hotelId]);
+    // Only initialize if we don't have a session and aren't already loading
+    if (!session && !sessionManager.getSession() && !sessionManager.getInitPromise()) {
+      initializeSession();
+    } else if (sessionManager.getSession()) {
+      setIsLoading(false);
+    }
+  }, [authLoading, isAuthenticated, user?.roles, initializeSession, session, sessionManager]);
 
-  // Handle step completion
+  // Retry handler
+  const handleRetry = useCallback(() => {
+    if (retryCount < 3) { // Max 3 retries
+      setRetryCount(prev => prev + 1);
+      setTimeout(() => {
+        sessionManager.clear(); // Clear any cached state
+        initializeSession();
+      }, 2000 * (retryCount + 1)); // Exponential backoff
+    } else {
+      setError('Maximum retry attempts reached. Please refresh the page.');
+    }
+  }, [retryCount, initializeSession, sessionManager]);
+
+  // Handle step completion with better error handling
   const handleStepComplete = useCallback(async (stepId: string, stepData: StepData) => {
     if (!session) return;
 
     try {
-      const response = await fetch(`/api/hotels/onboarding/sessions/${session.id}/steps`, {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${localStorage.getItem('token')}`
-        },
-        body: JSON.stringify({
-          stepId,
-          stepData
-        })
-      });
-
-      if (!response.ok) {
-        throw new Error('Failed to save step data');
-      }
-
-      // Mark step as completed
-      await fetch(`/api/hotels/onboarding/sessions/${session.id}/steps/${stepId}/complete`, {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${localStorage.getItem('token')}`
-        }
-      });
-
-      toast.success(`${stepId} step completed successfully`);
-    } catch (error) {
+      // Transform and validate step data before sending
+      const transformedData = transformStepData(stepId, stepData);
+      
+      await apiClient.put(`/hotels/integrated-onboarding/sessions/${session.id}/steps/${stepId}`, transformedData);
+      toast.success(`Step completed successfully`);
+    } catch (error: any) {
       console.error('Failed to complete step:', error);
-      toast.error('Failed to save step progress');
+      
+      // Handle validation errors (thrown by transformStepData)
+      if (error.message && !error.response) {
+        toast.error(`Validation Error: ${error.message}`);
+        throw error;
+      }
+      
+      // Handle API errors
+      if (error.response?.status === 429) {
+        toast.error('Please wait a moment before proceeding to the next step');
+      } else if (error.response?.status === 400) {
+        const errorMessage = error.response?.data?.message || 'Invalid data format. Please check your inputs.';
+        toast.error(`Data Error: ${errorMessage}`);
+      } else if (error.response?.status >= 500) {
+        toast.error('Server error. Please try again later.');
+      } else {
+        toast.error('Failed to save step progress. Please try again.');
+      }
       throw error;
     }
   }, [session]);
+
+  // Transform step data to match backend API expectations
+  const transformStepData = (stepId: string, stepData: StepData) => {
+    switch (stepId) {
+      case 'amenities':
+        // Ensure amenities data is in the correct format
+        const amenityIds = stepData.selectedAmenities || [];
+        if (!Array.isArray(amenityIds)) {
+          throw new Error('Selected amenities must be an array');
+        }
+        return {
+          amenityIds: amenityIds.filter(id => typeof id === 'string' && id.trim().length > 0),
+        };
+      
+      case 'images':
+        // Transform image data
+        const images = stepData.images || [];
+        if (!Array.isArray(images)) {
+          throw new Error('Images must be an array');
+        }
+        return {
+          images: images.filter(img => img && typeof img === 'object'),
+        };
+      
+      case 'property-info':
+        // Transform property info data with validation
+        const description = stepData.description || '';
+        const policies = stepData.policies || '';
+        
+        if (typeof description !== 'string' || description.trim().length < 10) {
+          throw new Error('Property description must be at least 10 characters long');
+        }
+        
+        if (typeof policies !== 'string' || policies.trim().length < 10) {
+          throw new Error('Hotel policies must be at least 10 characters long');
+        }
+        
+        return {
+          description: description.trim(),
+          policies: policies.trim(),
+          locationDetails: stepData.locationDetails || '',
+        };
+      
+      case 'rooms':
+        // Transform room data with validation
+        const rooms = stepData.rooms || [];
+        if (!Array.isArray(rooms) || rooms.length === 0) {
+          throw new Error('At least one room type is required');
+        }
+        
+        // Validate each room
+        rooms.forEach((room, index) => {
+          if (!room.name || typeof room.name !== 'string' || room.name.trim().length === 0) {
+            throw new Error(`Room ${index + 1} must have a valid name`);
+          }
+          if (typeof room.capacity !== 'number' || room.capacity < 1) {
+            throw new Error(`Room ${index + 1} must have a valid capacity`);
+          }
+        });
+        
+        return {
+          rooms: rooms.map(room => ({
+            ...room,
+            name: room.name.trim(),
+          })),
+        };
+      
+      case 'business-features':
+        // Transform business features data (optional step)
+        return {
+          meetingRooms: stepData.meetingRooms || [],
+          connectivity: stepData.connectivity || {},
+          businessServices: stepData.businessServices || [],
+        };
+      
+      default:
+        // For unknown steps, return data as-is but ensure it's an object
+        if (typeof stepData !== 'object' || stepData === null) {
+          return {};
+        }
+        return stepData;
+    }
+  };
 
   // Handle onboarding completion
   const handleComplete = useCallback(async (allData: OnboardingDraft) => {
     if (!session) return;
 
     try {
-      const response = await fetch(`/api/hotels/onboarding/sessions/${session.id}/complete`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${localStorage.getItem('token')}`
-        }
-      });
+      const response = await apiClient.post(`/hotels/integrated-onboarding/sessions/${session.id}/complete`);
+      const result = response.data;
 
-      if (!response.ok) {
-        throw new Error('Failed to complete onboarding');
-      }
-
-      const result = await response.json();
-      
       toast.success('Onboarding completed successfully!');
-      
+
       // Redirect to dashboard or hotel management page
       router.push(`/seller/hotels/${result.data.hotelId}`);
     } catch (error) {
@@ -476,22 +702,26 @@ export const IntegratedOnboardingFlow: React.FC<IntegratedOnboardingFlowProps> =
     }
   }, [session, router]);
 
-  // Handle draft saving
+  // Handle draft saving with improved error handling and request queuing
   const handleDraftSave = useCallback(async (draftData: OnboardingDraft) => {
     if (!session) return;
 
     try {
-      await fetch(`/api/hotels/onboarding/sessions/${session.id}/draft`, {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${localStorage.getItem('token')}`
-        },
-        body: JSON.stringify({ draftData })
-      });
-    } catch (error) {
+      await apiClient.put(
+        `/hotels/integrated-onboarding/sessions/${session.id}/draft`,
+        { draftData }
+      );
+    } catch (error: any) {
       console.error('Failed to save draft:', error);
-      // Don't throw - draft saving should be silent
+      
+      // Only show toast for critical errors, not rate limiting
+      if (error.response?.status !== 429) {
+        // Don't show toast for every save failure - it's too noisy
+        // The mobile wizard will handle error display
+      }
+      
+      // Re-throw to let the mobile wizard handle it
+      throw error;
     }
   }, [session]);
 
@@ -500,18 +730,10 @@ export const IntegratedOnboardingFlow: React.FC<IntegratedOnboardingFlowProps> =
     if (!session) return {};
 
     try {
-      const response = await fetch(`/api/hotels/onboarding/sessions/${session.id}/draft`, {
-        headers: {
-          'Authorization': `Bearer ${localStorage.getItem('token')}`
-        }
-      });
-
-      if (!response.ok) {
-        return {};
-      }
-
-      const result = await response.json();
-      return result.data || {};
+      const response = await apiClient.get(
+        `/hotels/integrated-onboarding/sessions/${session.id}/draft`
+      );
+      return response.data.data || {};
     } catch (error) {
       console.error('Failed to load draft:', error);
       return {};
@@ -519,7 +741,7 @@ export const IntegratedOnboardingFlow: React.FC<IntegratedOnboardingFlowProps> =
   }, [session]);
 
   // Loading state
-  if (isLoading) {
+  if (isLoading || authLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-slate-50">
         <Card className="w-full max-w-md">
@@ -531,7 +753,6 @@ export const IntegratedOnboardingFlow: React.FC<IntegratedOnboardingFlowProps> =
       </div>
     );
   }
-
   // Error state
   if (error) {
     return (
@@ -544,15 +765,19 @@ export const IntegratedOnboardingFlow: React.FC<IntegratedOnboardingFlowProps> =
             </CardTitle>
             <CardDescription>{error}</CardDescription>
           </CardHeader>
-          <CardContent className="text-center">
-            <Button onClick={() => window.location.reload()}>
-              Try Again
+          <CardContent className="text-center space-y-3">
+            <Button onClick={handleRetry} disabled={retryCount >= 3}>
+              {retryCount >= 3 ? 'Max Retries Reached' : `Try Again ${retryCount > 0 ? `(${retryCount}/3)` : ''}`}
+            </Button>
+            <Button variant="outline" onClick={() => window.location.reload()}>
+              Refresh Page
             </Button>
           </CardContent>
         </Card>
       </div>
     );
   }
+
 
   // Authentication check
   if (!isAuthenticated || !hasRole(UserRole.SELLER)) {
@@ -569,9 +794,9 @@ export const IntegratedOnboardingFlow: React.FC<IntegratedOnboardingFlowProps> =
             <Button onClick={() => router.push('/login?redirect=/onboarding')} className="w-full">
               Log In
             </Button>
-            <Button 
-              variant="outline" 
-              onClick={() => router.push('/register?type=seller')} 
+            <Button
+              variant="outline"
+              onClick={() => router.push('/register?type=seller')}
               className="w-full"
             >
               Register as Partner
@@ -582,7 +807,9 @@ export const IntegratedOnboardingFlow: React.FC<IntegratedOnboardingFlowProps> =
     );
   }
 
+  
   // Main onboarding flow
+  console.log('IntegratedOnboardingFlow - Rendering MobileWizard with steps:', steps.length);
   return (
     <MobileWizard
       steps={steps}

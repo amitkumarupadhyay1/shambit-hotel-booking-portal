@@ -41,17 +41,26 @@ interface ProgressiveEnhancementProps {
 
 // Hook for viewport detection and management
 const useViewport = (breakpoints = { mobile: 768, tablet: 1024, desktop: 1200 }) => {
+  // Initialize with consistent server-side values to prevent hydration mismatch
   const [viewport, setViewport] = useState<ViewportInfo>({
-    width: typeof window !== 'undefined' ? window.innerWidth : 1200,
-    height: typeof window !== 'undefined' ? window.innerHeight : 800,
-    deviceType: 'desktop',
-    orientation: 'landscape',
-    pixelRatio: typeof window !== 'undefined' ? window.devicePixelRatio : 1,
+    width: 1200, // Consistent default for SSR
+    height: 800,  // Consistent default for SSR
+    deviceType: 'desktop', // Consistent default for SSR
+    orientation: 'landscape', // Consistent default for SSR
+    pixelRatio: 1, // Consistent default for SSR
   });
 
   const [forcedViewport, setForcedViewport] = useState<'mobile' | 'tablet' | 'desktop' | null>(null);
+  const [isClient, setIsClient] = useState(false);
+
+  // Set client flag after hydration
+  useEffect(() => {
+    setIsClient(true);
+  }, []);
 
   const updateViewport = useCallback(() => {
+    if (!isClient || typeof window === 'undefined') return;
+    
     const width = window.innerWidth;
     const height = window.innerHeight;
     const pixelRatio = window.devicePixelRatio;
@@ -89,9 +98,11 @@ const useViewport = (breakpoints = { mobile: 768, tablet: 1024, desktop: 1200 })
       
       return prev;
     });
-  }, [breakpoints.mobile, breakpoints.tablet, breakpoints.desktop, forcedViewport]);
+  }, [breakpoints.mobile, breakpoints.tablet, breakpoints.desktop, forcedViewport, isClient]);
 
   useEffect(() => {
+    if (!isClient) return;
+    
     updateViewport();
     
     const handleResize = () => updateViewport();
@@ -107,13 +118,13 @@ const useViewport = (breakpoints = { mobile: 768, tablet: 1024, desktop: 1200 })
       window.removeEventListener('resize', handleResize);
       window.removeEventListener('orientationchange', handleOrientationChange);
     };
-  }, [updateViewport]);
+  }, [updateViewport, isClient]);
 
   const forceViewport = useCallback((type: 'mobile' | 'tablet' | 'desktop' | null) => {
     setForcedViewport(type);
   }, []);
 
-  return { viewport, forceViewport, forcedViewport };
+  return { viewport, forceViewport, forcedViewport, isClient };
 };
 
 // Progressive enhancement wrapper component
@@ -126,7 +137,7 @@ export const ProgressiveEnhancement: React.FC<ProgressiveEnhancementProps> = ({
   enableViewportToggle = false,
   className,
 }) => {
-  const { viewport, forceViewport, forcedViewport } = useViewport(breakpoints);
+  const { viewport, forceViewport, forcedViewport, isClient } = useViewport(breakpoints);
   const [showViewportControls, setShowViewportControls] = useState(false);
 
   // Determine which component to render
@@ -178,8 +189,8 @@ export const ProgressiveEnhancement: React.FC<ProgressiveEnhancementProps> = ({
 
   return (
     <div className={cn('progressive-enhancement-wrapper', className)}>
-      {/* Viewport controls for development/testing */}
-      {enableViewportToggle && (
+      {/* Viewport controls for development/testing - only render on client */}
+      {enableViewportToggle && isClient && (
         <div className="fixed top-4 right-4 z-50">
           <div className="flex items-center gap-2">
             <Button
@@ -256,70 +267,78 @@ export const ProgressiveEnhancement: React.FC<ProgressiveEnhancementProps> = ({
         </div>
       )}
 
-      {/* Viewport info indicator */}
-      <div className="fixed bottom-4 left-4 z-40">
-        <Badge 
-          variant="secondary" 
-          className="bg-white/90 backdrop-blur-sm text-xs font-mono"
-        >
-          {viewport.deviceType} {viewport.width}×{viewport.height}
-          {forcedViewport && ' (forced)'}
-        </Badge>
-      </div>
+      {/* Viewport info indicator - only render on client */}
+      {isClient && (
+        <div className="fixed bottom-4 left-4 z-40">
+          <Badge 
+            variant="secondary" 
+            className="bg-white/90 backdrop-blur-sm text-xs font-mono"
+          >
+            {viewport.deviceType} {viewport.width}×{viewport.height}
+            {forcedViewport && ' (forced)'}
+          </Badge>
+        </div>
+      )}
 
       {/* Main content with progressive enhancement */}
       <div className={getViewportClasses()}>
         {renderComponent()}
       </div>
 
-      {/* CSS custom properties for responsive design */}
-      <style jsx>{`
-        .progressive-enhancement-wrapper {
-          --viewport-width: ${viewport.width}px;
-          --viewport-height: ${viewport.height}px;
-          --device-type: ${viewport.deviceType};
-          --orientation: ${viewport.orientation};
-          --pixel-ratio: ${viewport.pixelRatio};
-        }
-        
-        .mobile-layout {
-          --content-padding: 1rem;
-          --card-spacing: 0.75rem;
-          --font-scale: 0.9;
-        }
-        
-        .tablet-layout {
-          --content-padding: 1.5rem;
-          --card-spacing: 1rem;
-          --font-scale: 1;
-        }
-        
-        .desktop-layout {
-          --content-padding: 2rem;
-          --card-spacing: 1.5rem;
-          --font-scale: 1.1;
-        }
-        
-        .mobile-portrait {
-          --layout-columns: 1;
-          --sidebar-width: 100%;
-        }
-        
-        .mobile-landscape {
-          --layout-columns: 2;
-          --sidebar-width: 40%;
-        }
-        
-        .tablet-portrait {
-          --layout-columns: 2;
-          --sidebar-width: 35%;
-        }
-        
-        .tablet-landscape {
-          --layout-columns: 3;
-          --sidebar-width: 30%;
-        }
-      `}</style>
+      {/* CSS custom properties for responsive design - using inline styles to avoid hydration mismatch */}
+      {isClient && (
+        <style 
+          dangerouslySetInnerHTML={{
+            __html: `
+              .progressive-enhancement-wrapper {
+                --viewport-width: ${viewport.width}px;
+                --viewport-height: ${viewport.height}px;
+                --device-type: ${viewport.deviceType};
+                --orientation: ${viewport.orientation};
+                --pixel-ratio: ${viewport.pixelRatio};
+              }
+              
+              .mobile-layout {
+                --content-padding: 1rem;
+                --card-spacing: 0.75rem;
+                --font-scale: 0.9;
+              }
+              
+              .tablet-layout {
+                --content-padding: 1.5rem;
+                --card-spacing: 1rem;
+                --font-scale: 1;
+              }
+              
+              .desktop-layout {
+                --content-padding: 2rem;
+                --card-spacing: 1.5rem;
+                --font-scale: 1.1;
+              }
+              
+              .mobile-portrait {
+                --layout-columns: 1;
+                --sidebar-width: 100%;
+              }
+              
+              .mobile-landscape {
+                --layout-columns: 2;
+                --sidebar-width: 40%;
+              }
+              
+              .tablet-portrait {
+                --layout-columns: 2;
+                --sidebar-width: 35%;
+              }
+              
+              .tablet-landscape {
+                --layout-columns: 3;
+                --sidebar-width: 30%;
+              }
+            `
+          }}
+        />
+      )}
     </div>
   );
 };

@@ -2,6 +2,7 @@ import { NestFactory } from '@nestjs/core';
 import { ValidationPipe, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { AppModule } from './app.module';
+import { HttpExceptionFilter } from './common/filters/http-exception.filter';
 
 // Import middleware with require for compatibility
 const cookieParser = require('cookie-parser');
@@ -35,7 +36,13 @@ async function bootstrap() {
     ],
     credentials: true,
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
-    allowedHeaders: ['Content-Type', 'Authorization'],
+    allowedHeaders: [
+      'Content-Type',
+      'Authorization',
+      'X-CSRF-Token',      // Allow CSRF token header
+      'csrf-token',        // Allow alternative CSRF token header
+      'X-Session-ID'       // Allow session ID header
+    ],
   });
 
   // Global validation pipe
@@ -50,6 +57,9 @@ async function bootstrap() {
     }),
   );
 
+  // Global exception filter for standardized error responses
+  app.useGlobalFilters(new HttpExceptionFilter());
+
   // API prefix
   app.setGlobalPrefix('api/v1');
 
@@ -62,6 +72,7 @@ async function bootstrap() {
       environment: process.env.NODE_ENV || 'development'
     });
   });
+
 
   const port = configService.get('PORT', 3002);
   await app.listen(port, '0.0.0.0');

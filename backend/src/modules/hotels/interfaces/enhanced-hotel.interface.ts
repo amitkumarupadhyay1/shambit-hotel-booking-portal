@@ -17,6 +17,7 @@ export enum OnboardingStatus {
   IN_PROGRESS = 'IN_PROGRESS',
   COMPLETED = 'COMPLETED',
   NEEDS_REVIEW = 'NEEDS_REVIEW',
+  REJECTED = 'REJECTED',
 }
 
 // Rich Text Content Interface

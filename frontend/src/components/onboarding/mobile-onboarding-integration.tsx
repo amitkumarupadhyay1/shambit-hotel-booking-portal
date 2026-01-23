@@ -145,14 +145,23 @@ const ImageStepIntegration = createIntegratedStepComponent(
   10,
   ({ data, onDataChange, onValidationChange, isOffline }) => {
     const handleUploadComplete = useCallback((images: any[]) => {
-      const newData = { ...data, images };
+      // Convert uploaded images to consistent format
+      const formattedImages = images.map(img => ({
+        id: img.id,
+        url: img.url,
+        qualityScore: img.qualityScore || 0,
+        category: img.category || ImageCategory.EXTERIOR,
+        uploadedAt: img.uploadedAt || new Date().toISOString()
+      }));
+      
+      const newData = { ...data, images: formattedImages };
       onDataChange(newData);
       
       // Real-time validation
       const validation: ValidationResult = {
-        isValid: images.length > 0,
-        errors: images.length === 0 ? ['Please upload at least one high-quality image'] : [],
-        warnings: images.length < 5 ? ['Consider uploading 5-10 images for better guest engagement'] : []
+        isValid: formattedImages.length > 0,
+        errors: formattedImages.length === 0 ? ['Please upload at least one high-quality image'] : [],
+        warnings: formattedImages.length < 5 ? ['Consider uploading 5-10 images for better guest engagement'] : []
       };
       onValidationChange(validation);
     }, [data, onDataChange, onValidationChange]);
@@ -164,8 +173,8 @@ const ImageStepIntegration = createIntegratedStepComponent(
           maxFiles={10}
           maxFileSize={5 * 1024 * 1024} // 5MB
           qualityStandards={{
-            minResolution: { width: 1920, height: 1080 },
-            acceptableAspectRatios: [16/9, 4/3, 1/1],
+            minResolution: { width: 200, height: 150 }, // Lowered for testing
+            acceptableAspectRatios: [16/9, 4/3, 3/2, 1/1, 1/10], // Added your ratio
             blurThreshold: 0.8,
             brightnessRange: { min: 0.2, max: 0.9 },
             contrastRange: { min: 0.3, max: 0.9 }
@@ -349,11 +358,12 @@ const createValidationSchema = (stepId: string): ValidationSchema => ({
             ? ['Consider adding more amenities to attract more guests'] : []
         };
       case 'images':
+        const images = data.images || [];
         return {
-          isValid: data.images && data.images.length > 0,
-          errors: !data.images || data.images.length === 0 
+          isValid: images.length > 0,
+          errors: images.length === 0 
             ? ['Please upload at least one image'] : [],
-          warnings: data.images && data.images.length < 5 
+          warnings: images.length > 0 && images.length < 5 
             ? ['More images lead to higher booking rates'] : []
         };
       case 'property-info':

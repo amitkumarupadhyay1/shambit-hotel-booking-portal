@@ -1,6 +1,7 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { INestApplication } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
+import { ConfigModule } from '@nestjs/config';
 import { DataSource } from 'typeorm';
 import request from 'supertest';
 import { JwtService } from '@nestjs/jwt';
@@ -18,16 +19,12 @@ import { EnhancedRoom } from '../../src/modules/rooms/entities/enhanced-room.ent
 // Import services for testing
 import { IntegratedOnboardingController } from '../../src/modules/hotels/controllers/integrated-onboarding.controller';
 import { OnboardingService } from '../../src/modules/hotels/services/onboarding.service';
-import { QualityAssuranceService } from '../../src/modules/hotels/services/quality-assurance.service';
-import { DataIntegrationService } from '../../src/modules/hotels/services/data-integration.service';
 
 describe('Integrated Onboarding Flow (Integration)', () => {
   let app: INestApplication;
   let dataSource: DataSource;
   let jwtService: JwtService;
   let onboardingService: OnboardingService;
-  let qualityAssuranceService: QualityAssuranceService;
-  let dataIntegrationService: DataIntegrationService;
 
   // Test data
   let testUser: User;
@@ -38,12 +35,18 @@ describe('Integrated Onboarding Flow (Integration)', () => {
   beforeAll(async () => {
     const moduleFixture: TestingModule = await Test.createTestingModule({
       imports: [
+        ConfigModule.forRoot({
+          isGlobal: true,
+          envFilePath: '.env.test',
+        }),
         TypeOrmModule.forRoot({
           type: 'sqlite',
           database: ':memory:',
           entities: [__dirname + '/../../src/**/*.entity{.ts,.js}'],
           synchronize: true,
           logging: false,
+          // SQLite doesn't support enum types, so we need to handle them as strings
+          dropSchema: true,
         }),
         HotelsModule,
         AuthModule,
@@ -58,8 +61,6 @@ describe('Integrated Onboarding Flow (Integration)', () => {
     dataSource = moduleFixture.get<DataSource>(DataSource);
     jwtService = moduleFixture.get<JwtService>(JwtService);
     onboardingService = moduleFixture.get<OnboardingService>(OnboardingService);
-    qualityAssuranceService = moduleFixture.get<QualityAssuranceService>(QualityAssuranceService);
-    dataIntegrationService = moduleFixture.get<DataIntegrationService>(DataIntegrationService);
 
     // Create test user
     testUser = await dataSource.getRepository(User).save({

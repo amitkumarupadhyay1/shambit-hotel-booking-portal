@@ -55,7 +55,7 @@ export interface SetAvailabilityDto {
 
 export const sellerApi = {
   getDashboard: () => 
-    apiClient.get<SellerDashboardDto>('/seller/dashboard'),
+    apiClient.get('/seller/dashboard') as Promise<{ data: SellerDashboardDto }>,
   
   getHotelOverview: (hotelId: string) =>
     apiClient.get(`/seller/hotels/${hotelId}/overview`),
@@ -66,9 +66,9 @@ export const sellerApi = {
     }),
   
   getRoomAvailability: (roomId: string, startDate: string, endDate: string) =>
-    apiClient.get<AvailabilityCalendarDto[]>(`/availability/rooms/${roomId}/calendar`, {
+    apiClient.get(`/availability/rooms/${roomId}/calendar`, {
       params: { startDate, endDate }
-    }),
+    }) as Promise<{ data: AvailabilityCalendarDto[] }>,
   
   blockDates: (roomId: string, data: BlockDatesDto) =>
     apiClient.put(`/availability/rooms/${roomId}/block`, data),

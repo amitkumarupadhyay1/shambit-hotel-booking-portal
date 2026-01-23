@@ -9,12 +9,23 @@ const urlsToCache = [
   '/apple-touch-icon.png',
 ];
 
-// Install event - cache resources
+// Install event - cache resources with error handling
 self.addEventListener('install', (event) => {
   event.waitUntil(
     caches.open(CACHE_NAME)
       .then((cache) => {
-        return cache.addAll(urlsToCache);
+        // Cache resources individually to handle failures gracefully
+        return Promise.allSettled(
+          urlsToCache.map(url => 
+            cache.add(url).catch(error => {
+              console.warn(`Failed to cache ${url}:`, error);
+              return null; // Continue with other resources
+            })
+          )
+        );
+      })
+      .catch(error => {
+        console.error('Failed to open cache:', error);
       })
   );
   // Force the waiting service worker to become the active service worker
@@ -38,10 +49,15 @@ self.addEventListener('activate', (event) => {
   self.clients.claim();
 });
 
-// Fetch event - serve from cache, fallback to network
+// Fetch event - serve from cache, fallback to network with better error handling
 self.addEventListener('fetch', (event) => {
   // Skip cross-origin requests
   if (!event.request.url.startsWith(self.location.origin)) {
+    return;
+  }
+
+  // Skip API requests and let them go directly to network
+  if (event.request.url.includes('/api/')) {
     return;
   }
 
@@ -57,16 +73,60 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
+  // Only handle GET requests
+  if (event.request.method !== 'GET') {
+    return;
+  }
+
   event.respondWith(
     caches.match(event.request)
       .then((response) => {
-        // Return cached version or fetch from network
-        return response || fetch(event.request).catch(() => {
-          // If both cache and network fail, show offline page for navigation requests
-          if (event.request.mode === 'navigate') {
-            return caches.match('/offline');
-          }
-        });
+        // Return cached version if available
+        if (response) {
+          return response;
+        }
+
+        // Fetch from network with error handling
+        return fetch(event.request)
+          .then(networkResponse => {
+            // Check if we received a valid response
+            if (!networkResponse || networkResponse.status !== 200 || networkResponse.type !== 'basic') {
+              return networkResponse;
+            }
+
+            // Clone the response for caching
+            const responseToCache = networkResponse.clone();
+
+            // Cache the response for future use
+            caches.open(CACHE_NAME)
+              .then((cache) => {
+                cache.put(event.request, responseToCache).catch(error => {
+                  console.warn('Failed to cache response:', error);
+                });
+              });
+
+            return networkResponse;
+          })
+          .catch(error => {
+            console.warn('Network request failed:', error);
+            // If both cache and network fail, show offline page for navigation requests
+            if (event.request.mode === 'navigate') {
+              return caches.match('/offline').catch(() => {
+                // If offline page is not available, return a basic response
+                return new Response('Offline - Please check your connection', {
+                  status: 503,
+                  statusText: 'Service Unavailable',
+                  headers: { 'Content-Type': 'text/plain' }
+                });
+              });
+            }
+            throw error;
+          });
+      })
+      .catch(error => {
+        console.error('Cache match failed:', error);
+        // Fallback to network request
+        return fetch(event.request);
       })
   );
 });

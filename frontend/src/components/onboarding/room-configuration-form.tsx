@@ -8,7 +8,7 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
-import { ImageUpload } from './image-upload';
+import { ImageUpload, ImageCategory as ImageUploadCategory } from './image-upload';
 import { AmenitySelection, PropertyType } from './amenity-selection';
 import { ValidationFeedback } from './amenity-validation';
 import { 
@@ -917,11 +917,28 @@ export function RoomConfigurationForm({
             </CardHeader>
             <CardContent>
               <ImageUpload
-                category="ROOMS"
+                category={ImageUploadCategory.ROOMS}
                 maxFiles={10}
                 maxFileSize={5 * 1024 * 1024} // 5MB
                 onUploadComplete={(uploadedImages) => {
-                  setImages(prev => [...prev, ...uploadedImages]);
+                  // Convert UploadedImage to ProcessedImage format
+                  const processedImages = uploadedImages.map(img => ({
+                    id: img.id,
+                    originalUrl: img.url,
+                    optimizedUrls: {
+                      large: img.url,
+                      medium: img.url,
+                      small: img.url
+                    },
+                    thumbnails: {
+                      small: img.url,
+                      medium: img.url
+                    },
+                    category: ImageCategory.ROOM_OVERVIEW,
+                    qualityScore: img.qualityScore,
+                    uploadedAt: img.uploadedAt
+                  }));
+                  setImages(prev => [...prev, ...processedImages]);
                 }}
                 onUploadProgress={(progress) => {
                   // Handle upload progress

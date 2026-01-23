@@ -34,7 +34,7 @@ export default function SellerDashboard() {
   const [error, setError] = useState<string | null>(null);
 
   // Check if user has seller role
-  const isSellerUser = user?.role === 'owner' || false;
+  const isSellerUser = user?.roles.includes(UserRole.SELLER) || false;
 
   useEffect(() => {
     console.log('🔍 Dashboard useEffect triggered:', { 

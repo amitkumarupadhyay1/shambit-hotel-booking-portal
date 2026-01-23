@@ -16,6 +16,7 @@ export enum OnboardingAuditAction {
   SESSION_UPDATED = 'SESSION_UPDATED',
   SESSION_COMPLETED = 'SESSION_COMPLETED',
   SESSION_DELETED = 'SESSION_DELETED',
+  SESSION_ABANDONED = 'SESSION_ABANDONED',
   STEP_UPDATED = 'STEP_UPDATED',
   STEP_COMPLETED = 'STEP_COMPLETED',
   DRAFT_SAVED = 'DRAFT_SAVED',
@@ -25,6 +26,14 @@ export enum OnboardingAuditAction {
   PERMISSION_DENIED = 'PERMISSION_DENIED',
   DATA_EXPORTED = 'DATA_EXPORTED',
   HOTEL_DATA_UPDATED = 'HOTEL_DATA_UPDATED',
+  // Performance monitoring actions
+  PERFORMANCE_SLOW_REQUEST = 'PERFORMANCE_SLOW_REQUEST',
+  PERFORMANCE_HIGH_MEMORY = 'PERFORMANCE_HIGH_MEMORY',
+  PERFORMANCE_ERROR_RATE = 'PERFORMANCE_ERROR_RATE',
+  // Security monitoring actions
+  SECURITY_RATE_LIMIT_EXCEEDED = 'SECURITY_RATE_LIMIT_EXCEEDED',
+  SECURITY_CSRF_VIOLATION = 'SECURITY_CSRF_VIOLATION',
+  SECURITY_SUSPICIOUS_ACTIVITY = 'SECURITY_SUSPICIOUS_ACTIVITY',
 }
 
 /**
@@ -123,6 +132,20 @@ export class OnboardingAuditLog {
         return 'Exported onboarding data';
       case OnboardingAuditAction.HOTEL_DATA_UPDATED:
         return 'Updated hotel data from onboarding';
+      case OnboardingAuditAction.SESSION_ABANDONED:
+        return 'Session abandoned or expired';
+      case OnboardingAuditAction.PERFORMANCE_SLOW_REQUEST:
+        return 'Slow request detected';
+      case OnboardingAuditAction.PERFORMANCE_HIGH_MEMORY:
+        return 'High memory usage detected';
+      case OnboardingAuditAction.PERFORMANCE_ERROR_RATE:
+        return 'High error rate detected';
+      case OnboardingAuditAction.SECURITY_RATE_LIMIT_EXCEEDED:
+        return 'Rate limit exceeded';
+      case OnboardingAuditAction.SECURITY_CSRF_VIOLATION:
+        return 'CSRF token violation';
+      case OnboardingAuditAction.SECURITY_SUSPICIOUS_ACTIVITY:
+        return 'Suspicious activity detected';
       default:
         return 'Unknown action';
     }
@@ -137,6 +160,20 @@ export class OnboardingAuditLog {
       OnboardingAuditAction.ROLE_REMOVED,
       OnboardingAuditAction.PERMISSION_DENIED,
       OnboardingAuditAction.DATA_EXPORTED,
+      OnboardingAuditAction.SECURITY_RATE_LIMIT_EXCEEDED,
+      OnboardingAuditAction.SECURITY_CSRF_VIOLATION,
+      OnboardingAuditAction.SECURITY_SUSPICIOUS_ACTIVITY,
+    ].includes(this.action);
+  }
+
+  /**
+   * Check if this is a performance-related audit event
+   */
+  isPerformanceEvent(): boolean {
+    return [
+      OnboardingAuditAction.PERFORMANCE_SLOW_REQUEST,
+      OnboardingAuditAction.PERFORMANCE_HIGH_MEMORY,
+      OnboardingAuditAction.PERFORMANCE_ERROR_RATE,
     ].includes(this.action);
   }
 

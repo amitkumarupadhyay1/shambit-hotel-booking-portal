@@ -1,10 +1,12 @@
-import { Module } from '@nestjs/common';
+import { Module, NestModule, MiddlewareConsumer } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { ThrottlerModule } from '@nestjs/throttler';
 import { CacheModule } from '@nestjs/cache-manager';
+import { APP_GUARD } from '@nestjs/core';
 import { DatabaseConfig } from './config/database.config';
 import { cacheConfig } from './config/cache.config';
+import { rateLimitConfig } from './config/rate-limit.config';
 import { AuthModule } from './modules/auth/auth.module';
 import { UsersModule } from './modules/users/users.module';
 import { AuditModule } from './modules/audit/audit.module';
@@ -15,6 +17,10 @@ import { AdminHotelsModule } from './modules/admin-hotels/admin-hotels.module';
 import { AvailabilityModule } from './modules/availability/availability.module';
 import { SearchModule } from './modules/search/search.module';
 import { SellerDashboardModule } from './modules/seller-dashboard/seller-dashboard.module';
+import { RequestDeduplicationMiddleware } from './common/middleware/request-deduplication.middleware';
+import { CSRFProtectionMiddleware } from './common/middleware/csrf-protection.middleware';
+import { CsrfController } from './common/controllers/csrf.controller';
+import { EnhancedThrottlerGuard } from './common/guards/enhanced-throttler.guard';
 
 @Module({
   imports: [
@@ -32,13 +38,8 @@ import { SellerDashboardModule } from './modules/seller-dashboard/seller-dashboa
     // Cache
     CacheModule.registerAsync(cacheConfig),
 
-    // Rate limiting
-    ThrottlerModule.forRoot([
-      {
-        ttl: 60000, // 1 minute
-        limit: 100, // 100 requests per minute
-      },
-    ]),
+    // Enhanced rate limiting with multiple configurations
+    ThrottlerModule.forRoot(rateLimitConfig),
 
     // Feature modules
     AuthModule,
@@ -52,5 +53,27 @@ import { SellerDashboardModule } from './modules/seller-dashboard/seller-dashboa
     SearchModule,
     SellerDashboardModule,
   ],
+  controllers: [CsrfController],
+  providers: [
+    // Global rate limiting guard
+    {
+      provide: APP_GUARD,
+      useClass: EnhancedThrottlerGuard,
+    },
+  ],
 })
-export class AppModule { }
+export class AppModule implements NestModule {
+  configure(consumer: MiddlewareConsumer) {
+    // Apply CSRF protection middleware first
+    consumer
+      .apply(CSRFProtectionMiddleware)
+      .exclude('/health', '/metrics')
+      .forRoutes('*');
+
+    // Apply request deduplication middleware after CSRF
+    consumer
+      .apply(RequestDeduplicationMiddleware)
+      .exclude('/health', '/metrics')
+      .forRoutes('*');
+  }
+}

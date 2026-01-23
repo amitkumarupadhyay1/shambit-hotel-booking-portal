@@ -51,7 +51,6 @@ export const StepWrapper: React.FC<StepWrapperProps> = ({
     errors: [],
     warnings: []
   });
-  const [isSaving, setIsSaving] = useState(false);
   const [lastSaved, setLastSaved] = useState<Date | null>(null);
 
   // Handle validation changes
@@ -60,19 +59,13 @@ export const StepWrapper: React.FC<StepWrapperProps> = ({
     onValidationChange(result);
   }, [onValidationChange]);
 
-  // Auto-save functionality
-  useEffect(() => {
-    const saveTimeout = setTimeout(() => {
-      if (onSave && Object.keys(data).length > 0) {
-        setIsSaving(true);
-        onSave();
-        setLastSaved(new Date());
-        setTimeout(() => setIsSaving(false), 500);
-      }
-    }, 2000);
-
-    return () => clearTimeout(saveTimeout);
-  }, [data, onSave]);
+  // Manual save handler
+  const handleManualSave = useCallback(() => {
+    if (onSave) {
+      onSave();
+      setLastSaved(new Date());
+    }
+  }, [onSave]);
 
   const getValidationIcon = () => {
     if (validation.errors.length > 0) {
@@ -174,14 +167,8 @@ export const StepWrapper: React.FC<StepWrapperProps> = ({
           {/* Save Status */}
           <div className="flex items-center justify-between text-xs text-slate-500 mt-2">
             <div className="flex items-center gap-2">
-              {isSaving && (
-                <div className="flex items-center gap-1">
-                  <div className="animate-spin rounded-full h-3 w-3 border-b border-slate-400"></div>
-                  <span>Saving...</span>
-                </div>
-              )}
-              {lastSaved && !isSaving && (
-                <span>Saved {lastSaved.toLocaleTimeString()}</span>
+              {lastSaved && (
+                <span>Last saved {lastSaved.toLocaleTimeString()}</span>
               )}
               {isOffline && (
                 <span className="text-amber-600">Working offline</span>
@@ -193,8 +180,7 @@ export const StepWrapper: React.FC<StepWrapperProps> = ({
                 <Button
                   variant="ghost"
                   size="sm"
-                  onClick={onSave}
-                  disabled={isSaving}
+                  onClick={handleManualSave}
                   className="h-6 px-2 text-xs"
                 >
                   <Save className="h-3 w-3 mr-1" />

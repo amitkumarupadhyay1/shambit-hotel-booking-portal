@@ -4,23 +4,21 @@ import React, { useState } from 'react';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { ImageUpload, MobileImageUpload, ImageGallery } from './index';
-
-type ImageCategoryKey = 'EXTERIOR' | 'LOBBY' | 'ROOMS' | 'AMENITIES' | 'DINING' | 'RECREATIONAL' | 'BUSINESS' | 'VIRTUAL_TOURS';
+import { ImageUpload, MobileImageUpload, ImageGallery, ImageCategory } from './index';
 
 export const ImageManagementDemo: React.FC = () => {
-  const [selectedCategory, setSelectedCategory] = useState<ImageCategoryKey>('EXTERIOR');
+  const [selectedCategory, setSelectedCategory] = useState<ImageCategory>(ImageCategory.EXTERIOR);
   const [uploadedImages, setUploadedImages] = useState<any[]>([]);
   const [isMobile, setIsMobile] = useState(false);
 
-  const categories: { key: ImageCategoryKey; label: string }[] = [
-    { key: 'EXTERIOR', label: 'Exterior' },
-    { key: 'LOBBY', label: 'Lobby' },
-    { key: 'ROOMS', label: 'Rooms' },
-    { key: 'AMENITIES', label: 'Amenities' },
-    { key: 'DINING', label: 'Dining' },
-    { key: 'RECREATIONAL', label: 'Recreational' },
-    { key: 'BUSINESS', label: 'Business' },
+  const categories: { key: ImageCategory; label: string }[] = [
+    { key: ImageCategory.EXTERIOR, label: 'Exterior' },
+    { key: ImageCategory.LOBBY, label: 'Lobby' },
+    { key: ImageCategory.ROOMS, label: 'Rooms' },
+    { key: ImageCategory.AMENITIES, label: 'Amenities' },
+    { key: ImageCategory.DINING, label: 'Dining' },
+    { key: ImageCategory.RECREATIONAL, label: 'Recreational' },
+    { key: ImageCategory.BUSINESS, label: 'Business' },
   ];
 
   const handleUploadComplete = (images: any[]) => {

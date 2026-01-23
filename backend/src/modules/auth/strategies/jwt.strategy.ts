@@ -4,6 +4,7 @@ import { ExtractJwt, Strategy } from 'passport-jwt';
 import { ConfigService } from '@nestjs/config';
 import { UsersService } from '../../users/users.service';
 import { JwtPayload } from '../interfaces/jwt-payload.interface';
+import { SessionService } from '../session.service';
 import { User } from '../../users/entities/user.entity';
 
 @Injectable()
@@ -14,6 +15,7 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
   constructor(
     private configService: ConfigService,
     private usersService: UsersService,
+    private sessionService: SessionService,
   ) {
     super({
       jwtFromRequest: ExtractJwt.fromAuthHeaderAsBearerToken(),
@@ -24,8 +26,22 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
 
   async validate(payload: JwtPayload) {
     const userId = payload.sub;
+
+    // Check token blacklist
+    if (payload.jti && await this.sessionService.isTokenBlacklisted(payload.jti)) {
+      throw new UnauthorizedException('Token is blacklisted');
+    }
+
+    // Validate server-side session
+    if (payload.sessionId) {
+      const session = await this.sessionService.validateSession(payload.sessionId);
+      if (!session) {
+        throw new UnauthorizedException('Session invalid or expired');
+      }
+    }
+
     const now = Date.now();
-    
+
     // Check cache first
     const cached = this.userCache.get(userId);
     if (cached && (now - cached.timestamp) < this.CACHE_TTL) {
@@ -37,20 +53,21 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
 
     // Fetch from database
     const user = await this.usersService.findOne(userId);
-    
+
     if (!user || user.status !== 'ACTIVE') {
       throw new UnauthorizedException('User not found or inactive');
     }
 
     // Cache the result
     this.userCache.set(userId, { user, timestamp: now });
-    
+
     // Clean up old cache entries periodically
     if (this.userCache.size > 100) {
       this.cleanupCache();
     }
 
-    return user;
+    // Return user with session ID
+    return { ...user, sessionId: payload.sessionId };
   }
 
   private cleanupCache() {

@@ -8,6 +8,7 @@ import { AuditService } from '../../src/modules/audit/audit.service';
 import { User, UserRole, UserStatus } from '../../src/modules/users/entities/user.entity';
 import { LoginDto } from '../../src/modules/auth/dto/login.dto';
 import { RegisterDto } from '../../src/modules/auth/dto/register.dto';
+import { SessionService } from '../../src/modules/auth/session.service';
 
 describe('AuthService', () => {
   let service: AuthService;
@@ -15,6 +16,7 @@ describe('AuthService', () => {
   let jwtService: JwtService;
   let configService: ConfigService;
   let auditService: AuditService;
+  let sessionService: SessionService;
 
   const mockUser: User = {
     id: '123e4567-e89b-12d3-a456-426614174000',
@@ -32,7 +34,7 @@ describe('AuthService', () => {
     lastLoginAt: null,
     createdAt: new Date(),
     updatedAt: new Date(),
-    toJSON: function() {
+    toJSON: function () {
       const { password, emailVerificationToken, passwordResetToken, ...result } = this;
       return result;
     }
@@ -59,6 +61,13 @@ describe('AuthService', () => {
     log: jest.fn(),
   };
 
+  const mockSessionService = {
+    createSession: jest.fn(),
+    validateSession: jest.fn(),
+    invalidateSession: jest.fn(),
+    invalidateAllUserSessions: jest.fn(),
+  };
+
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
       providers: [
@@ -79,6 +88,10 @@ describe('AuthService', () => {
           provide: AuditService,
           useValue: mockAuditService,
         },
+        {
+          provide: SessionService,
+          useValue: mockSessionService,
+        },
       ],
     }).compile();
 
@@ -87,6 +100,7 @@ describe('AuthService', () => {
     jwtService = module.get<JwtService>(JwtService);
     configService = module.get<ConfigService>(ConfigService);
     auditService = module.get<AuditService>(AuditService);
+    sessionService = module.get<SessionService>(SessionService);
 
     // Reset mocks
     jest.clearAllMocks();
@@ -139,6 +153,7 @@ describe('AuthService', () => {
       mockUsersService.findByEmail.mockResolvedValue(mockUser);
       mockUsersService.validatePassword.mockResolvedValue(true);
       mockUsersService.updateLastLogin.mockResolvedValue(undefined);
+      mockSessionService.createSession.mockResolvedValue({ id: 'session-id' });
       mockJwtService.signAsync.mockResolvedValueOnce('access-token');
       mockJwtService.signAsync.mockResolvedValueOnce('refresh-token');
       mockConfigService.get.mockReturnValue('7d');
@@ -211,6 +226,7 @@ describe('AuthService', () => {
 
     it('should register customer successfully with default BUYER role', async () => {
       mockUsersService.create.mockResolvedValue(mockUser);
+      mockSessionService.createSession.mockResolvedValue({ id: 'session-id' });
       mockJwtService.signAsync.mockResolvedValueOnce('access-token');
       mockJwtService.signAsync.mockResolvedValueOnce('refresh-token');
       mockConfigService.get.mockReturnValue('7d');
@@ -240,8 +256,9 @@ describe('AuthService', () => {
     it('should register hotel owner successfully with SELLER role', async () => {
       const sellerRegisterDto = { ...registerDto, role: UserRole.SELLER };
       const sellerUser = { ...mockUser, roles: [UserRole.SELLER] };
-      
+
       mockUsersService.create.mockResolvedValue(sellerUser);
+      mockSessionService.createSession.mockResolvedValue({ id: 'session-id' });
       mockJwtService.signAsync.mockResolvedValueOnce('access-token');
       mockJwtService.signAsync.mockResolvedValueOnce('refresh-token');
       mockConfigService.get.mockReturnValue('7d');
@@ -269,9 +286,11 @@ describe('AuthService', () => {
     it('should refresh token successfully', async () => {
       const refreshToken = 'valid-refresh-token';
       const payload = { sub: mockUser.id, email: mockUser.email, roles: mockUser.roles };
-      
+
       mockJwtService.verify.mockReturnValue(payload);
       mockUsersService.findOne.mockResolvedValue(mockUser);
+      // No sessionId in payload for this test case or mock validateSession if needed
+      // But implementation now checks payload.sessionId if present
       mockJwtService.signAsync.mockResolvedValue('new-access-token');
       mockConfigService.get.mockReturnValue('refresh-secret');
 
@@ -286,7 +305,7 @@ describe('AuthService', () => {
 
     it('should throw UnauthorizedException for invalid refresh token', async () => {
       const refreshToken = 'invalid-refresh-token';
-      
+
       mockJwtService.verify.mockImplementation(() => {
         throw new Error('Invalid token');
       });
@@ -300,7 +319,7 @@ describe('AuthService', () => {
       const refreshToken = 'valid-refresh-token';
       const payload = { sub: mockUser.id, email: mockUser.email, roles: mockUser.roles };
       const inactiveUser = { ...mockUser, status: UserStatus.BANNED };
-      
+
       mockJwtService.verify.mockReturnValue(payload);
       mockUsersService.findOne.mockResolvedValue(inactiveUser);
 
@@ -318,15 +337,29 @@ describe('AuthService', () => {
 
       mockAuditService.log.mockResolvedValue(undefined);
 
-      await service.logout(userId, ipAddress, userAgent);
+      await service.logout(userId, undefined, ipAddress, userAgent);
 
       expect(mockAuditService.log).toHaveBeenCalledWith({
         action: 'LOGOUT',
         resource: 'auth',
         resourceId: userId,
         userId,
-        details: { ipAddress, userAgent },
+        details: { ipAddress, userAgent, sessionId: undefined },
       });
+    });
+
+    it('should invalidate session if provided', async () => {
+      const userId = mockUser.id;
+      const sessionId = 'session-id';
+      const ipAddress = '127.0.0.1';
+      const userAgent = 'Test Agent';
+
+      mockAuditService.log.mockResolvedValue(undefined);
+      mockSessionService.invalidateSession.mockResolvedValue(undefined);
+
+      await service.logout(userId, sessionId, ipAddress, userAgent);
+
+      expect(mockSessionService.invalidateSession).toHaveBeenCalledWith(sessionId);
     });
   });
 });

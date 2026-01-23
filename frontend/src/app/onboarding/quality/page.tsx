@@ -179,6 +179,7 @@ export default function QualityAssurancePage() {
                 value={currentScenario}
                 onChange={(e) => setCurrentScenario(e.target.value as any)}
                 className="px-3 py-1 border border-blue-300 rounded-md text-sm"
+                aria-label="Select quality scenario"
               >
                 <option value="normal">Normal Property (78%)</option>
                 <option value="excellent">Excellent Property (92%)</option>

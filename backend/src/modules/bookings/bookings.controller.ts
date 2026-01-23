@@ -25,7 +25,7 @@ import { BookingStatus, PaymentStatus } from './entities/booking.entity';
 @UseGuards(FeatureFlagGuard)
 @FeatureFlag('BOOKING_CREATION')
 export class BookingsController {
-  constructor(private readonly bookingsService: BookingsService) {}
+  constructor(private readonly bookingsService: BookingsService) { }
 
   @Post()
   @UseGuards(JwtAuthGuard)
@@ -63,8 +63,8 @@ export class BookingsController {
 
   @Get(':id')
   @UseGuards(JwtAuthGuard)
-  findOne(@Param('id') id: string) {
-    return this.bookingsService.findOne(id);
+  findOne(@Param('id') id: string, @Request() req) {
+    return this.bookingsService.findOne(id, req.user.id, req.user.roles);
   }
 
   @Patch(':id')
@@ -84,7 +84,8 @@ export class BookingsController {
   }
 
   @Patch(':id/payment')
-  @UseGuards(JwtAuthGuard)
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRole.ADMIN)
   @FeatureFlag('PAYMENT_PROCESSING')
   updatePaymentStatus(
     @Param('id') id: string,

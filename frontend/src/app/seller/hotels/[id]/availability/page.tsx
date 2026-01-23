@@ -52,7 +52,7 @@ export default function AvailabilityManagement() {
   useEffect(() => {
     if (authLoading) return;
 
-    if (!user || user.role !== 'owner') {
+    if (!user || !user.roles.includes(UserRole.SELLER)) {
       router.push('/login');
       return;
     }

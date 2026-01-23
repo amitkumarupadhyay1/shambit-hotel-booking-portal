@@ -8,6 +8,18 @@ import { Hotel } from '../entities/hotel.entity';
 import { Room } from '../../rooms/entities/room.entity';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import { BedType } from '../../rooms/interfaces/enhanced-room.interface';
+import {
+  PropertyType,
+  OnboardingStatus,
+  RichTextContent,
+  HotelBasicInfo,
+  LocationDetails,
+  HotelPolicies,
+  CategorizedAmenities,
+  CategorizedImages,
+  BusinessFeatures,
+  QualityMetrics,
+} from '../interfaces/enhanced-hotel.interface';
 
 export interface DataIntegrationResult {
   success: boolean;
@@ -576,6 +588,43 @@ export class DataIntegrationService {
       return await this.hotelRepository.save(placeholder);
     } catch (error) {
       this.logger.error(`Failed to create hotel placeholder: ${error.message}`, error.stack);
+      throw error;
+    }
+  }
+
+  /**
+   * Create an enhanced hotel placeholder for onboarding
+   */
+  async createEnhancedHotelPlaceholder(ownerId: string): Promise<EnhancedHotel> {
+    try {
+      const placeholder = this.enhancedHotelRepository.create({
+        ownerId,
+        basicInfo: {
+          name: 'New Hotel',
+          propertyType: PropertyType.HOTEL,
+          starRating: 3,
+          contactInfo: {
+            phone: '',
+            email: '',
+            website: '',
+          },
+          address: {
+            street: '',
+            city: '',
+            state: '',
+            pincode: '',
+            country: '',
+            latitude: null,
+            longitude: null,
+          },
+        },
+        onboardingStatus: OnboardingStatus.NOT_STARTED,
+      });
+
+      const savedPlaceholder = await this.enhancedHotelRepository.save(placeholder);
+      return savedPlaceholder;
+    } catch (error) {
+      this.logger.error(`Failed to create enhanced hotel placeholder: ${error.message}`, error.stack);
       throw error;
     }
   }

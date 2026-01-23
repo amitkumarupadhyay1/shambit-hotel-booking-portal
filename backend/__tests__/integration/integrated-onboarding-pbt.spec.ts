@@ -1,6 +1,8 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { INestApplication } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
+import { ConfigModule } from '@nestjs/config';
+import { CacheModule } from '@nestjs/cache-manager';
 import { DataSource } from 'typeorm';
 import request from 'supertest';
 import { JwtService } from '@nestjs/jwt';
@@ -65,12 +67,22 @@ describe('Integrated Onboarding Flow - Property-Based Tests', () => {
   beforeAll(async () => {
     const moduleFixture: TestingModule = await Test.createTestingModule({
       imports: [
+        ConfigModule.forRoot({
+          isGlobal: true,
+          envFilePath: '.env.test',
+        }),
+        CacheModule.register({
+          isGlobal: true,
+          ttl: 1000, // 1 second for tests
+          max: 100, // small cache for tests
+        }),
         TypeOrmModule.forRoot({
           type: 'sqlite',
           database: ':memory:',
           entities: [__dirname + '/../../src/**/*.entity{.ts,.js}'],
           synchronize: true,
           logging: false,
+          dropSchema: true,
         }),
         HotelsModule,
         AuthModule,
@@ -91,7 +103,7 @@ describe('Integrated Onboarding Flow - Property-Based Tests', () => {
       password: 'hashedpassword',
       firstName: 'Test',
       lastName: 'Owner',
-      role: UserRole.SELLER,
+      roles: [UserRole.SELLER],
       isActive: true,
       isEmailVerified: true,
     });
@@ -99,7 +111,7 @@ describe('Integrated Onboarding Flow - Property-Based Tests', () => {
     authToken = jwtService.sign({ 
       sub: testUser.id, 
       email: testUser.email, 
-      roles: [testUser.roles[0]] 
+      roles: testUser.roles 
     });
   });
 

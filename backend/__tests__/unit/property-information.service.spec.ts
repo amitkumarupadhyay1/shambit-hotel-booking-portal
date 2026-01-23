@@ -241,7 +241,8 @@ describe('PropertyInformationService - Property-Based Tests', () => {
           fc.record({
             content: fc.oneof(
               fc.constant(''), // Empty content
-              fc.string({ minLength: 1, maxLength: 10 }), // Very short content
+              fc.string({ minLength: 1, maxLength: 10 }).filter(s => s.trim().length === 0), // Whitespace-only content
+              fc.string({ minLength: 1, maxLength: 10 }).filter(s => s.trim().length > 0), // Very short valid content
               fc.string({ minLength: 10000, maxLength: 15000 }), // Very long content
             ),
             format: fc.constantFrom('markdown', 'html'),
@@ -252,7 +253,10 @@ describe('PropertyInformationService - Property-Based Tests', () => {
             
             jest.spyOn(repository, 'findOne').mockResolvedValue(hotel);
 
-            if (descriptionData.content === '' || descriptionData.content.length > 10000) {
+            const isEmptyOrWhitespace = !descriptionData.content || descriptionData.content.trim().length === 0;
+            const isTooLong = descriptionData.content.length > 10000;
+
+            if (isEmptyOrWhitespace || isTooLong) {
               // Should throw BadRequestException for invalid content
               await expect(
                 service.updatePropertyDescription(hotel.id, descriptionData)

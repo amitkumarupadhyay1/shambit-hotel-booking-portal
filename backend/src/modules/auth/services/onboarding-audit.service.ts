@@ -281,6 +281,149 @@ export class OnboardingAuditService {
   }
 
   /**
+   * Log session expiration
+   */
+  async logSessionExpired(
+    userId: string,
+    hotelId: string,
+    sessionId: string,
+    metadata?: any
+  ): Promise<void> {
+    await this.logAuditEvent({
+      action: OnboardingAuditAction.SESSION_ABANDONED,
+      userId,
+      hotelId,
+      sessionId,
+      metadata,
+      description: 'Onboarding session expired and marked as abandoned',
+    });
+  }
+
+  /**
+   * Log performance issues
+   */
+  async logPerformanceIssue(
+    action: OnboardingAuditAction.PERFORMANCE_SLOW_REQUEST | OnboardingAuditAction.PERFORMANCE_HIGH_MEMORY | OnboardingAuditAction.PERFORMANCE_ERROR_RATE,
+    userId: string,
+    hotelId: string,
+    metadata: {
+      duration?: number;
+      memoryUsage?: number;
+      errorRate?: number;
+      endpoint?: string;
+      [key: string]: any;
+    }
+  ): Promise<void> {
+    await this.logAuditEvent({
+      action,
+      userId,
+      hotelId,
+      metadata,
+      description: `Performance issue detected: ${action}`,
+    });
+  }
+
+  /**
+   * Log security events
+   */
+  async logSecurityEvent(
+    action: OnboardingAuditAction.SECURITY_RATE_LIMIT_EXCEEDED | OnboardingAuditAction.SECURITY_CSRF_VIOLATION | OnboardingAuditAction.SECURITY_SUSPICIOUS_ACTIVITY,
+    userId: string,
+    hotelId: string,
+    metadata: {
+      ipAddress?: string;
+      userAgent?: string;
+      endpoint?: string;
+      violationType?: string;
+      [key: string]: any;
+    }
+  ): Promise<void> {
+    await this.logAuditEvent({
+      action,
+      userId,
+      hotelId,
+      metadata,
+      description: `Security event detected: ${action}`,
+    });
+  }
+
+  /**
+   * Get performance metrics summary
+   */
+  async getPerformanceMetrics(hotelId?: string, days: number = 7): Promise<{
+    slowRequests: number;
+    averageResponseTime: number;
+    highMemoryEvents: number;
+    errorRateEvents: number;
+    performanceTrend: 'improving' | 'stable' | 'degrading';
+  }> {
+    const startDate = new Date();
+    startDate.setDate(startDate.getDate() - days);
+
+    const whereConditions: any = {
+      action: [
+        OnboardingAuditAction.PERFORMANCE_SLOW_REQUEST,
+        OnboardingAuditAction.PERFORMANCE_HIGH_MEMORY,
+        OnboardingAuditAction.PERFORMANCE_ERROR_RATE,
+      ],
+      createdAt: Between(startDate, new Date()),
+    };
+
+    if (hotelId) {
+      whereConditions.hotelId = hotelId;
+    }
+
+    const performanceLogs = await this.auditLogRepository.find({
+      where: whereConditions,
+      order: { createdAt: 'DESC' },
+    });
+
+    const slowRequests = performanceLogs.filter(
+      log => log.action === OnboardingAuditAction.PERFORMANCE_SLOW_REQUEST
+    ).length;
+
+    const highMemoryEvents = performanceLogs.filter(
+      log => log.action === OnboardingAuditAction.PERFORMANCE_HIGH_MEMORY
+    ).length;
+
+    const errorRateEvents = performanceLogs.filter(
+      log => log.action === OnboardingAuditAction.PERFORMANCE_ERROR_RATE
+    ).length;
+
+    // Calculate average response time from slow request logs
+    const slowRequestLogs = performanceLogs.filter(
+      log => log.action === OnboardingAuditAction.PERFORMANCE_SLOW_REQUEST && log.metadata?.duration
+    );
+
+    const averageResponseTime = slowRequestLogs.length > 0
+      ? slowRequestLogs.reduce((sum, log) => sum + (log.metadata?.duration || 0), 0) / slowRequestLogs.length
+      : 0;
+
+    // Determine performance trend (simplified)
+    const recentLogs = performanceLogs.filter(
+      log => log.createdAt > new Date(Date.now() - 24 * 60 * 60 * 1000) // Last 24 hours
+    );
+    const olderLogs = performanceLogs.filter(
+      log => log.createdAt <= new Date(Date.now() - 24 * 60 * 60 * 1000)
+    );
+
+    let performanceTrend: 'improving' | 'stable' | 'degrading' = 'stable';
+    if (recentLogs.length > olderLogs.length * 1.2) {
+      performanceTrend = 'degrading';
+    } else if (recentLogs.length < olderLogs.length * 0.8) {
+      performanceTrend = 'improving';
+    }
+
+    return {
+      slowRequests,
+      averageResponseTime,
+      highMemoryEvents,
+      errorRateEvents,
+      performanceTrend,
+    };
+  }
+
+  /**
    * Log role assignment
    */
   async logRoleAssigned(

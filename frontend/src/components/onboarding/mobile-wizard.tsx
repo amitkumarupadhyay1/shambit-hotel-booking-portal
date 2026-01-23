@@ -90,20 +90,41 @@ const useOfflineDetection = () => {
   return isOffline;
 };
 
-// Hook for auto-save functionality
+// Hook for auto-save functionality with improved debouncing
 const useAutoSave = (
   draftData: OnboardingDraft,
   onDraftSave: (data: OnboardingDraft) => Promise<void>,
-  isOffline: boolean
+  isOffline: boolean,
+  isInitialized: boolean
 ) => {
   const [isSaving, setIsSaving] = useState(false);
   const [lastSaved, setLastSaved] = useState<Date | null>(null);
+  const [saveError, setSaveError] = useState<string | null>(null);
   const saveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const lastSaveDataRef = useRef<string>('');
+  const saveInProgressRef = useRef(false);
   
   const saveDraft = useCallback(async () => {
-    if (isSaving) return;
+    // Don't save if not initialized yet
+    if (!isInitialized) {
+      return;
+    }
     
+    // Prevent multiple simultaneous saves
+    if (saveInProgressRef.current) {
+      return;
+    }
+    
+    // Check if data has actually changed
+    const currentDataString = JSON.stringify(draftData);
+    if (currentDataString === lastSaveDataRef.current) {
+      return;
+    }
+    
+    saveInProgressRef.current = true;
     setIsSaving(true);
+    setSaveError(null);
+    
     try {
       if (isOffline) {
         // Save to localStorage when offline
@@ -121,37 +142,71 @@ const useAutoSave = (
           timestamp: new Date().toISOString()
         }));
       }
-    } catch (error) {
+      
+      // Update the last saved data reference
+      lastSaveDataRef.current = currentDataString;
+      
+    } catch (error: any) {
       console.error('Failed to save draft:', error);
+      
+      // Handle specific error types
+      if (error.response?.status === 429) {
+        setSaveError('Saving too frequently. Please wait a moment.');
+        // Retry after exponential backoff
+        const retryDelay = Math.min(30000, 5000 * Math.pow(2, Math.random())); // 5-30 seconds
+        setTimeout(() => {
+          saveInProgressRef.current = false;
+          saveDraft();
+        }, retryDelay);
+        return;
+      } else if (error.response?.status >= 500) {
+        setSaveError('Server error. Saved locally.');
+      } else {
+        setSaveError('Save failed. Saved locally.');
+      }
+      
       // Fallback to localStorage
       localStorage.setItem('onboarding-draft', JSON.stringify({
         data: draftData,
         timestamp: new Date().toISOString()
       }));
       setLastSaved(new Date());
+      lastSaveDataRef.current = currentDataString;
+      
     } finally {
       setIsSaving(false);
+      saveInProgressRef.current = false;
     }
-  }, [draftData, onDraftSave, isOffline, isSaving]);
+  }, [draftData, onDraftSave, isOffline, isInitialized]);
   
-  // Auto-save with debouncing
+  // Auto-save with improved debouncing - longer delay to prevent rate limiting
   useEffect(() => {
+    // Don't start autosave until initialized
+    if (!isInitialized) {
+      return;
+    }
+    
+    // Clear existing timeout
     if (saveTimeoutRef.current) {
       clearTimeout(saveTimeoutRef.current);
     }
     
-    saveTimeoutRef.current = setTimeout(() => {
-      saveDraft();
-    }, 2000); // Save after 2 seconds of inactivity
+    // Only set timeout if data has changed
+    const currentDataString = JSON.stringify(draftData);
+    if (currentDataString !== lastSaveDataRef.current && Object.keys(draftData).length > 0) {
+      saveTimeoutRef.current = setTimeout(() => {
+        saveDraft();
+      }, 10000); // Increased to 10 seconds to prevent rate limiting
+    }
     
     return () => {
       if (saveTimeoutRef.current) {
         clearTimeout(saveTimeoutRef.current);
       }
     };
-  }, [saveDraft]);
+  }, [draftData, saveDraft, isInitialized]);
   
-  return { isSaving, lastSaved, saveDraft };
+  return { isSaving, lastSaved, saveError, saveDraft };
 };
 
 export const MobileWizard: React.FC<MobileWizardProps> = ({
@@ -163,17 +218,31 @@ export const MobileWizard: React.FC<MobileWizardProps> = ({
   onDraftLoad,
   className
 }) => {
+  console.log('MobileWizard - Component rendered with:', {
+    stepsCount: steps.length,
+    stepIds: steps.map(s => s.id),
+    initialData: Object.keys(initialData),
+    className
+  });
+  
   const [currentStepIndex, setCurrentStepIndex] = useState(0);
   const [draftData, setDraftData] = useState<OnboardingDraft>(initialData);
   const [completedSteps, setCompletedSteps] = useState<Set<string>>(new Set());
   const [validationResults, setValidationResults] = useState<Record<string, ValidationResult>>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showPreview, setShowPreview] = useState(false);
+  const [isInitialized, setIsInitialized] = useState(false);
+  const [forceRender, setForceRender] = useState(0); // Add force render state
   
   const isOffline = useOfflineDetection();
-  const { isSaving, lastSaved, saveDraft } = useAutoSave(draftData, onDraftSave, isOffline);
+  const { isSaving, lastSaved, saveError, saveDraft } = useAutoSave(draftData, onDraftSave, isOffline, isInitialized);
   
   const currentStep = steps[currentStepIndex];
+  console.log('MobileWizard - Current step:', {
+    index: currentStepIndex,
+    step: currentStep ? { id: currentStep.id, title: currentStep.title } : null
+  });
+  
   const totalSteps = steps.length;
   const progress = ((currentStepIndex + 1) / totalSteps) * 100;
   
@@ -186,6 +255,7 @@ export const MobileWizard: React.FC<MobileWizardProps> = ({
           const serverDraft = await onDraftLoad();
           if (Object.keys(serverDraft).length > 0) {
             setDraftData(serverDraft);
+            setIsInitialized(true);
             return;
           }
         }
@@ -196,8 +266,10 @@ export const MobileWizard: React.FC<MobileWizardProps> = ({
           const parsed = JSON.parse(localDraft);
           setDraftData(parsed.data || {});
         }
+        setIsInitialized(true);
       } catch (error) {
         console.error('Failed to load draft data:', error);
+        setIsInitialized(true);
       }
     };
     
@@ -206,20 +278,33 @@ export const MobileWizard: React.FC<MobileWizardProps> = ({
   
   // Sync offline data when coming back online
   useEffect(() => {
+    // Only sync if we were previously offline and now we're online
+    // and we have data that was saved while offline
     if (!isOffline && lastSaved) {
-      const syncOfflineData = async () => {
-        try {
-          await onDraftSave(draftData);
-          toast.success('Draft synced successfully');
-        } catch (error) {
-          console.error('Failed to sync offline data:', error);
-          toast.error('Failed to sync offline changes');
+      const localDraft = localStorage.getItem('onboarding-draft');
+      if (localDraft) {
+        const parsed = JSON.parse(localDraft);
+        const savedWhileOffline = parsed.timestamp && new Date(parsed.timestamp) > new Date(Date.now() - 300000); // Within last 5 minutes
+        
+        if (savedWhileOffline && Object.keys(draftData).length > 0) {
+          const syncOfflineData = async () => {
+            try {
+              await onDraftSave(draftData);
+              toast.success('Offline changes synced successfully');
+            } catch (error: any) {
+              console.error('Failed to sync offline data:', error);
+              if (error.response?.status !== 429) {
+                toast.error('Failed to sync offline changes');
+              }
+            }
+          };
+          
+          // Delay sync to avoid immediate conflicts
+          setTimeout(syncOfflineData, 2000);
         }
-      };
-      
-      syncOfflineData();
+      }
     }
-  }, [isOffline, draftData, onDraftSave, lastSaved]);
+  }, [isOffline]); // Remove draftData, onDraftSave, lastSaved from dependencies
   
   const handleStepDataChange = useCallback((stepData: StepData) => {
     setDraftData(prev => ({
@@ -229,15 +314,41 @@ export const MobileWizard: React.FC<MobileWizardProps> = ({
   }, [currentStep.id]);
   
   const handleValidationChange = useCallback((result: ValidationResult) => {
-    setValidationResults(prev => ({
-      ...prev,
-      [currentStep.id]: result
-    }));
+    console.log('Mobile wizard - Validation change for step', currentStep.id, ':', result);
+    console.log('Mobile wizard - Current step details:', {
+      stepId: currentStep.id,
+      stepTitle: currentStep.title,
+      isOptional: currentStep.isOptional
+    });
+    setValidationResults(prev => {
+      const newResults = {
+        ...prev,
+        [currentStep.id]: result
+      };
+      console.log('Mobile wizard - Updated validation results:', newResults);
+      console.log('Mobile wizard - Validation result for current step:', newResults[currentStep.id]);
+      return newResults;
+    });
+    // Force a re-render to ensure UI updates
+    setForceRender(prev => prev + 1);
   }, [currentStep.id]);
   
   const canProceedToNext = () => {
     const currentValidation = validationResults[currentStep.id];
-    return currentValidation?.isValid !== false || currentStep.isOptional;
+    console.log('Can proceed check for step', currentStep.id, ':', {
+      validation: currentValidation,
+      isOptional: currentStep.isOptional,
+      canProceed: currentStep.isOptional || currentValidation?.isValid === true,
+      allValidationResults: validationResults,
+      currentStepData: draftData[currentStep.id]
+    });
+    
+    // For required steps, we need explicit validation that passes
+    // For optional steps, we allow proceeding even without validation
+    if (currentStep.isOptional) {
+      return true;
+    }
+    return currentValidation?.isValid === true;
   };
   
   const handleNext = async () => {
@@ -289,12 +400,29 @@ export const MobileWizard: React.FC<MobileWizardProps> = ({
   };
   
   const handleManualSave = async () => {
-    await saveDraft();
-    toast.success('Progress saved');
+    try {
+      await saveDraft();
+      if (!saveError) {
+        toast.success('Progress saved successfully');
+      }
+    } catch (error) {
+      // Error handling is done in the saveDraft function
+      // Don't show additional toast here
+    }
   };
   
   const StepComponent = currentStep.component;
   const currentValidation = validationResults[currentStep.id];
+  
+  console.log('Mobile wizard render - Current step validation state:', {
+    stepId: currentStep.id,
+    stepTitle: currentStep.title,
+    validation: currentValidation,
+    allValidationResults: validationResults,
+    canProceed: canProceedToNext(),
+    currentStepIndex,
+    totalSteps: steps.length
+  });
   
   return (
     <div className={cn("min-h-screen bg-slate-50 flex flex-col", className)}>
@@ -306,6 +434,14 @@ export const MobileWizard: React.FC<MobileWizardProps> = ({
             <div className="mb-2 flex items-center gap-2 text-sm text-amber-600 bg-amber-50 px-3 py-2 rounded-lg">
               <WifiOff className="h-4 w-4" />
               <span>Working offline - changes will sync when connected</span>
+            </div>
+          )}
+          
+          {/* Save error indicator */}
+          {saveError && (
+            <div className="mb-2 flex items-center gap-2 text-sm text-red-600 bg-red-50 px-3 py-2 rounded-lg">
+              <AlertCircle className="h-4 w-4" />
+              <span>{saveError}</span>
             </div>
           )}
           
@@ -381,51 +517,86 @@ export const MobileWizard: React.FC<MobileWizardProps> = ({
             </div>
             
             {/* Validation feedback */}
-            {currentValidation && (
-              <div className="mt-3">
-                {currentValidation.errors.length > 0 && (
-                  <div className="flex items-start gap-2 p-3 bg-red-50 border border-red-200 rounded-lg">
-                    <AlertCircle className="h-4 w-4 text-red-500 mt-0.5 flex-shrink-0" />
-                    <div>
-                      <p className="text-sm font-medium text-red-700">
-                        Please fix the following issues:
-                      </p>
-                      <ul className="mt-1 text-sm text-red-600 list-disc list-inside">
-                        {currentValidation.errors.map((error, index) => (
-                          <li key={index}>{error}</li>
-                        ))}
-                      </ul>
+            {(() => {
+              // Use the validation results from the validation system
+              return currentValidation && (
+                <div className="mt-3" key={`validation-${currentStep.id}-${currentValidation.isValid}-${currentValidation.errors.length}-${forceRender}`}>
+                  {currentValidation.errors.length > 0 && (
+                    <div className="flex items-start gap-2 p-3 bg-red-50 border border-red-200 rounded-lg">
+                      <AlertCircle className="h-4 w-4 text-red-500 mt-0.5 flex-shrink-0" />
+                      <div>
+                        <p className="text-sm font-medium text-red-700">
+                          Please complete all required fields before proceeding
+                        </p>
+                        <ul className="mt-1 text-sm text-red-600 list-disc list-inside">
+                          {currentValidation.errors.map((error, index) => (
+                            <li key={index}>{error}</li>
+                          ))}
+                        </ul>
+                      </div>
                     </div>
-                  </div>
-                )}
-                
-                {currentValidation.warnings.length > 0 && (
-                  <div className="flex items-start gap-2 p-3 bg-amber-50 border border-amber-200 rounded-lg mt-2">
-                    <AlertCircle className="h-4 w-4 text-amber-500 mt-0.5 flex-shrink-0" />
-                    <div>
-                      <p className="text-sm font-medium text-amber-700">
-                        Recommendations:
-                      </p>
-                      <ul className="mt-1 text-sm text-amber-600 list-disc list-inside">
-                        {currentValidation.warnings.map((warning, index) => (
-                          <li key={index}>{warning}</li>
-                        ))}
-                      </ul>
+                  )}
+                  
+                  {currentValidation.warnings.length > 0 && (
+                    <div className="flex items-start gap-2 p-3 bg-amber-50 border border-amber-200 rounded-lg mt-2">
+                      <AlertCircle className="h-4 w-4 text-amber-500 mt-0.5 flex-shrink-0" />
+                      <div>
+                        <p className="text-sm font-medium text-amber-700">
+                          Recommendations:
+                        </p>
+                        <ul className="mt-1 text-sm text-amber-600 list-disc list-inside">
+                          {currentValidation.warnings.map((warning, index) => (
+                            <li key={index}>{warning}</li>
+                          ))}
+                        </ul>
+                      </div>
                     </div>
-                  </div>
-                )}
-              </div>
-            )}
+                  )}
+                  
+                  {currentValidation.isValid && currentValidation.errors.length === 0 && (
+                    <div className="flex items-start gap-2 p-3 bg-green-50 border border-green-200 rounded-lg">
+                      <Check className="h-4 w-4 text-green-500 mt-0.5 flex-shrink-0" />
+                      <div>
+                        <p className="text-sm font-medium text-green-700">
+                          All requirements completed! You can proceed to the next step.
+                        </p>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              );
+            })()}
           </CardHeader>
           
           <CardContent>
-            <StepComponent
-              data={draftData[currentStep.id] || {}}
-              onDataChange={handleStepDataChange}
-              onValidationChange={handleValidationChange}
-              isActive={true}
-              isOffline={isOffline}
-            />
+            <div style={{ padding: '10px', backgroundColor: '#f0f0f0', marginBottom: '20px', fontSize: '12px' }}>
+              <strong>DEBUG INFO:</strong><br/>
+              Step ID: {currentStep.id}<br/>
+              Step Title: {currentStep.title}<br/>
+              Step Index: {currentStepIndex + 1} of {totalSteps}<br/>
+              Is Valid: {currentValidation?.isValid ? 'Yes' : 'No'}<br/>
+              Errors: {currentValidation?.errors?.length || 0}<br/>
+              Can Proceed: {canProceedToNext() ? 'Yes' : 'No'}<br/>
+              Component: {currentStep.component.name || 'Unknown'}
+            </div>
+            {(() => {
+              console.log('MobileWizard - About to render StepComponent:', {
+                stepId: currentStep.id,
+                componentName: currentStep.component.name,
+                data: draftData[currentStep.id],
+                isActive: true,
+                isOffline
+              });
+              return (
+                <StepComponent
+                  data={draftData[currentStep.id] || {}}
+                  onDataChange={handleStepDataChange}
+                  onValidationChange={handleValidationChange}
+                  isActive={true}
+                  isOffline={isOffline}
+                />
+              );
+            })()}
           </CardContent>
         </Card>
       </div>
@@ -453,7 +624,7 @@ export const MobileWizard: React.FC<MobileWizardProps> = ({
               className="flex items-center gap-1"
             >
               <Save className="h-4 w-4" />
-              Save
+              {isSaving ? 'Saving...' : 'Save'}
             </Button>
           </div>
           

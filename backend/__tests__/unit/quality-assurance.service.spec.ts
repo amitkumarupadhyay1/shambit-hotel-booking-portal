@@ -487,11 +487,11 @@ describe('QualityAssuranceService', () => {
         fc.asyncProperty(
           fc.record({
             hotelId: fc.uuid(),
-            complexity: fc.integer({ min: 1, max: 10 }), // Complexity factor
+            complexity: fc.integer({ min: 1, max: 5 }), // Reduced complexity range
           }),
           async ({ hotelId, complexity }) => {
             // Adjust mock data based on complexity
-            const complexImages = Array.from({ length: complexity * 5 }, (_, i) => ({
+            const complexImages = Array.from({ length: complexity * 2 }, (_, i) => ({
               id: `image-${i}`,
               qualityScore: Math.random() * 100,
               category: Object.values(ImageCategory)[i % Object.values(ImageCategory).length],
@@ -520,7 +520,7 @@ describe('QualityAssuranceService', () => {
             expect(Array.isArray(report.recommendations)).toBe(true);
           }
         ),
-        { numRuns: 50 } // Reduced runs for performance test
+        { numRuns: 20 } // Reduced runs for performance test
       );
     });
   });

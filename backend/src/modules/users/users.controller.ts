@@ -8,6 +8,7 @@ import {
   Delete,
   UseGuards,
   Request,
+  ForbiddenException,
 } from '@nestjs/common';
 import { UsersService } from './users.service';
 import { CreateUserDto } from './dto/create-user.dto';
@@ -20,7 +21,7 @@ import { UserRole } from './entities/user.entity';
 @Controller('users')
 @UseGuards(JwtAuthGuard)
 export class UsersController {
-  constructor(private readonly usersService: UsersService) {}
+  constructor(private readonly usersService: UsersService) { }
 
   @Post()
   @UseGuards(RolesGuard)
@@ -43,8 +44,15 @@ export class UsersController {
 
   @Get(':id')
   @UseGuards(RolesGuard)
-  @Roles(UserRole.ADMIN)
-  findOne(@Param('id') id: string) {
+  findOne(@Param('id') id: string, @Request() req) {
+    const user = req.user;
+    const isAdmin = user.roles.includes(UserRole.ADMIN);
+    const isOwner = user.id === id;
+
+    if (!isAdmin && !isOwner) {
+      throw new ForbiddenException('Access denied');
+    }
+
     return this.usersService.findOne(id);
   }
 

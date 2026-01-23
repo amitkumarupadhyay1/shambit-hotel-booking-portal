@@ -12,6 +12,7 @@ import {
   BadRequestException,
   NotFoundException,
 } from '@nestjs/common';
+import { Throttle } from '@nestjs/throttler';
 import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../../auth/guards/roles.guard';
 import { Roles } from '../../auth/decorators/roles.decorator';
@@ -28,6 +29,8 @@ import { BusinessFeaturesService } from '../services/business-features.service';
 import { QualityAssuranceService } from '../services/quality-assurance.service';
 import { DataIntegrationService } from '../services/data-integration.service';
 import { MobileOptimizationService } from '../services/mobile-optimization.service';
+import { HotelRbacService } from '../../auth/services/hotel-rbac.service';
+import { HotelRole } from '../../auth/enums/hotel-roles.enum';
 
 // DTOs for integrated flow
 export class CreateIntegratedSessionDto {
@@ -65,6 +68,7 @@ export class IntegratedOnboardingController {
     private readonly qualityAssuranceService: QualityAssuranceService,
     private readonly dataIntegrationService: DataIntegrationService,
     private readonly mobileOptimizationService: MobileOptimizationService,
+    private readonly hotelRbacService: HotelRbacService,
   ) {}
 
   /**
@@ -72,6 +76,7 @@ export class IntegratedOnboardingController {
    * Requirements: 6.1, 6.4 - Mobile-first onboarding with offline support
    */
   @Post('sessions')
+  @Throttle({ default: { limit: 10, ttl: 60000 } }) // Allow 10 session creations per minute
   @Roles(UserRole.SELLER, UserRole.ADMIN)
   async createIntegratedSession(
     @Body() createDto: CreateIntegratedSessionDto,
@@ -80,12 +85,76 @@ export class IntegratedOnboardingController {
     this.logger.log(`Creating integrated onboarding session for user ${req.user.id}`);
 
     try {
+      // Check if user already has any active onboarding session
+      const existingActiveSession = await this.onboardingService.getUserActiveSession(req.user.id);
+      if (existingActiveSession) {
+        this.logger.log(`User ${req.user.id} already has active session ${existingActiveSession.id}, returning existing session`);
+        
+        // Get mobile config for existing session
+        const mobileConfig = await this.mobileOptimizationService.getOptimizedConfig(
+          createDto.deviceInfo?.type || 'mobile',
+        );
+
+        // Get amenity categories
+        const amenityCategories = await this.amenityService.getAmenitiesByCategory();
+
+        return {
+          success: true,
+          data: {
+            sessionId: existingActiveSession.id,
+            hotelId: existingActiveSession.enhancedHotelId,
+            currentStep: existingActiveSession.currentStep,
+            completedSteps: existingActiveSession.completedSteps,
+            qualityScore: existingActiveSession.qualityScore,
+            expiresAt: existingActiveSession.expiresAt,
+            mobileConfig,
+            initialData: {
+              amenityCategories,
+              maxImageSize: mobileConfig.maxImageSize,
+              compressionLevel: mobileConfig.compressionLevel,
+            },
+          },
+          message: 'Returning existing active onboarding session',
+        };
+      }
+
       // Create or get hotel ID
       let hotelId = createDto.hotelId;
       if (!hotelId) {
-        // Create new hotel placeholder
-        const newHotel = await this.dataIntegrationService.createHotelPlaceholder(req.user.id);
+        // Create new enhanced hotel placeholder
+        const newHotel = await this.dataIntegrationService.createEnhancedHotelPlaceholder(req.user.id);
         hotelId = newHotel.id;
+
+        // Assign the user as the owner of the new hotel
+        // Use a retry mechanism to handle potential timing issues
+        let retryCount = 0;
+        const maxRetries = 3;
+        
+        while (retryCount < maxRetries) {
+          try {
+            await this.hotelRbacService.assignHotelRole({
+              userId: req.user.id,
+              hotelId,
+              role: HotelRole.OWNER,
+              assignedBy: req.user.id, // Self-assigned for new hotels
+            });
+
+            this.logger.log(`Successfully assigned OWNER role to user ${req.user.id} for hotel ${hotelId}`);
+            break; // Success, exit retry loop
+          } catch (roleError) {
+            retryCount++;
+            this.logger.warn(`Attempt ${retryCount} failed to assign role for hotel ${hotelId}: ${roleError.message}`);
+            
+            if (retryCount >= maxRetries) {
+              this.logger.error(`Failed to assign role after ${maxRetries} attempts. User can still proceed with onboarding.`);
+              // Don't throw error - allow onboarding to continue
+              // The role can be assigned later through admin interface if needed
+            } else {
+              // Wait before retry
+              await new Promise(resolve => setTimeout(resolve, 200 * retryCount));
+            }
+          }
+        }
       }
 
       // Create onboarding session
@@ -126,7 +195,15 @@ export class IntegratedOnboardingController {
       };
     } catch (error) {
       this.logger.error('Failed to create integrated session:', error);
-      throw new BadRequestException('Failed to create onboarding session');
+      
+      if (error.name === 'ForbiddenException') {
+        throw error; // Re-throw permission errors as-is
+      }
+      
+      throw new BadRequestException({
+        message: 'Failed to create onboarding session',
+        error: error.message || 'Unknown error',
+      });
     }
   }
 
@@ -135,6 +212,7 @@ export class IntegratedOnboardingController {
    * Requirements: 6.5 - Real-time validation, 8.3 - Data consistency
    */
   @Put('sessions/:sessionId/steps/:stepId')
+  @Throttle({ default: { limit: 30, ttl: 60000 } }) // Allow 30 step updates per minute
   @Roles(UserRole.SELLER, UserRole.ADMIN)
   async updateIntegratedStep(
     @Param('sessionId') sessionId: string,
@@ -321,6 +399,92 @@ export class IntegratedOnboardingController {
   }
 
   /**
+   * Save draft data for offline support
+   * Requirements: 6.4 - Offline draft saving
+   */
+  @Post('sessions/:sessionId/draft')
+  @Throttle({ default: { limit: 30, ttl: 60000 } }) // Reduced from 50 to 30 saves per minute
+  @Roles(UserRole.SELLER, UserRole.ADMIN)
+  async saveDraft(
+    @Param('sessionId') sessionId: string,
+    @Body() draftData: OnboardingDraft,
+    @Request() req: any,
+  ) {
+    this.logger.log(`Saving draft for session ${sessionId}`);
+
+    try {
+      await this.onboardingService.saveDraft(sessionId, draftData);
+
+      return {
+        success: true,
+        data: {
+          sessionId,
+          savedAt: new Date().toISOString(),
+        },
+        message: 'Draft saved successfully',
+      };
+    } catch (error) {
+      this.logger.error(`Failed to save draft for session ${sessionId}:`, error);
+      throw new BadRequestException('Failed to save draft');
+    }
+  }
+
+  /**
+   * Update draft data for offline support
+   * Requirements: 6.4 - Offline draft saving
+   */
+  @Put('sessions/:sessionId/draft')
+  @Throttle({ default: { limit: 30, ttl: 60000 } }) // Reduced from 50 to 30 updates per minute
+  @Roles(UserRole.SELLER, UserRole.ADMIN)
+  async updateDraft(
+    @Param('sessionId') sessionId: string,
+    @Body() draftData: OnboardingDraft,
+    @Request() req: any,
+  ) {
+    this.logger.log(`Updating draft for session ${sessionId}`);
+
+    try {
+      await this.onboardingService.saveDraft(sessionId, draftData);
+
+      return {
+        success: true,
+        data: {
+          sessionId,
+          updatedAt: new Date().toISOString(),
+        },
+        message: 'Draft updated successfully',
+      };
+    } catch (error) {
+      this.logger.error(`Failed to update draft for session ${sessionId}:`, error);
+      throw new BadRequestException('Failed to update draft');
+    }
+  }
+
+  /**
+   * Load draft data for offline support
+   * Requirements: 6.4 - Offline draft saving
+   */
+  @Get('sessions/:sessionId/draft')
+  @Throttle({ default: { limit: 30, ttl: 60000 } }) // Allow 30 draft loads per minute
+  @Roles(UserRole.SELLER, UserRole.ADMIN)
+  async loadDraft(@Param('sessionId') sessionId: string) {
+    this.logger.log(`Loading draft for session ${sessionId}`);
+
+    try {
+      const draftData = await this.onboardingService.loadDraft(sessionId);
+
+      return {
+        success: true,
+        data: draftData,
+        message: 'Draft loaded successfully',
+      };
+    } catch (error) {
+      this.logger.error(`Failed to load draft for session ${sessionId}:`, error);
+      throw new NotFoundException('Draft not found');
+    }
+  }
+
+  /**
    * Get comprehensive session status with all integrations
    * Requirements: 6.2 - Progress indicators, 7.5 - Quality reporting
    */
@@ -382,6 +546,36 @@ export class IntegratedOnboardingController {
       data: config,
       message: 'Mobile configuration retrieved',
     };
+  }
+
+  /**
+   * Clean up expired onboarding sessions (Admin only)
+   * Requirements: 6.1.5 - Implement session cleanup for expired sessions
+   */
+  @Post('admin/cleanup-expired-sessions')
+  @Roles(UserRole.ADMIN)
+  async cleanupExpiredSessions(@Request() req: any) {
+    this.logger.log(`Admin ${req.user.id} initiated expired session cleanup`);
+
+    try {
+      const result = await this.onboardingService.cleanupExpiredSessions();
+
+      return {
+        success: true,
+        data: {
+          cleanedCount: result.cleanedCount,
+          timestamp: new Date().toISOString(),
+          initiatedBy: req.user.id,
+        },
+        message: result.message,
+      };
+    } catch (error) {
+      this.logger.error('Failed to cleanup expired sessions:', error);
+      throw new BadRequestException({
+        message: 'Failed to cleanup expired sessions',
+        error: error.message,
+      });
+    }
   }
 
   // Private helper methods

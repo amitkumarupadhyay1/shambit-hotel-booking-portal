@@ -1,4 +1,5 @@
-import apiClient, { setAccessToken, checkAuthStatus } from './client';
+import apiClient, { setAccessToken } from './client';
+import { authManager } from '../auth/auth-manager';
 import {
     LoginCredentials,
     RegisterCredentials,
@@ -10,20 +11,20 @@ export const authApi = {
     // Login with email/password
     login: async (credentials: LoginCredentials): Promise<AuthResponse> => {
         console.log('🔐 Attempting login for:', credentials.email);
-        
+
         try {
-            const { data } = await apiClient.post<AuthResponse>(
+            const { data } = await apiClient.post(
                 '/auth/login',
                 credentials
-            );
-            
+            ) as { data: AuthResponse };
+
             console.log('✅ Login successful for:', credentials.email);
-            
+
             // Store access token in memory
             if (data.accessToken) {
                 setAccessToken(data.accessToken);
             }
-            
+
             return data;
         } catch (error) {
             console.error('❌ Login failed for:', credentials.email, error);
@@ -33,52 +34,63 @@ export const authApi = {
 
     // Register new user
     register: async (credentials: RegisterCredentials): Promise<AuthResponse> => {
-        const { data } = await apiClient.post<AuthResponse>(
+        const { data } = await apiClient.post(
             '/auth/register',
             credentials
-        );
-        
+        ) as { data: AuthResponse };
+
         // Store access token in memory
         if (data.accessToken) {
             setAccessToken(data.accessToken);
         }
-        
+
         return data;
     },
 
     // Google OAuth (placeholder - not implemented in backend yet)
     googleAuth: async (googleToken: string): Promise<AuthResponse> => {
-        const { data } = await apiClient.post<AuthResponse>('/auth/google', {
+        const { data } = await apiClient.post('/auth/google', {
             token: googleToken,
-        });
-        
+        }) as { data: AuthResponse };
+
         if (data.accessToken) {
             setAccessToken(data.accessToken);
         }
-        
+
         return data;
     },
 
-    // Get current user profile - use singleton to prevent multiple calls
+    // Get current user profile - use AuthManager singleton to prevent multiple calls
     getProfile: async (): Promise<User> => {
-        return checkAuthStatus();
+        const result = await authManager.checkAuth();
+        if (!result.isAuthenticated || !result.user) {
+            throw new Error('Not authenticated');
+        }
+        return result.user;
     },
 
     // Refresh token (handled automatically by interceptor)
     refresh: async (): Promise<{ accessToken: string; message: string }> => {
-        const { data } = await apiClient.post<{ accessToken: string; message: string }>('/auth/refresh');
-        
+        const { data } = await apiClient.post('/auth/refresh') as { data: { accessToken: string; message: string } };
+
         if (data.accessToken) {
             setAccessToken(data.accessToken);
         }
-        
+
         return data;
     },
 
     // Logout
     logout: async (): Promise<void> => {
         await apiClient.post('/auth/logout');
-        // Clear access token from memory
-        setAccessToken(null);
+        // Clear tokens via AuthManager
+        authManager.logout();
+    },
+
+    // Global Logout
+    logoutGlobal: async (): Promise<void> => {
+        await apiClient.post('/auth/global-logout');
+        // Clear tokens via AuthManager
+        authManager.logout();
     },
 };
