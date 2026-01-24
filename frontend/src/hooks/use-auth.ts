@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useCallback, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { toast } from 'sonner';
 import { authApi } from '@/lib/api/auth';
@@ -23,6 +23,7 @@ export interface AuthState {
   user: User | null;
   isLoading: boolean;
   isAuthenticated: boolean;
+  isInitialized: boolean;
   login: (credentials: LoginInput) => Promise<void>;
   register: (userData: RegisterInput) => Promise<void>;
   loginWithGoogle: (credential?: string) => Promise<void>;
@@ -32,9 +33,27 @@ export interface AuthState {
   checkAuth: () => Promise<void>;
 }
 
+/**
+ * Simplified useAuth hook - Facade over Zustand store + AuthManager
+ * 
+ * This hook provides a clean interface while delegating:
+ * - State management to Zustand store
+ * - API operations to AuthManager
+ * - Auth operations to authApi
+ */
 export function useAuth(): AuthState {
-  // Use Zustand store for state management (memory-only now)
-  const { user, isLoading, isAuthenticated, setUser, setLoading, logout: storeLogout } = useAuthStore();
+  // Get state from Zustand store (single source of truth)
+  const {
+    user,
+    isLoading,
+    isAuthenticated,
+    isInitialized,
+    setUser,
+    setLoading,
+    logout: storeLogout,
+    hasRole,
+  } = useAuthStore();
+
   const router = useRouter();
 
   const login = useCallback(async (credentials: LoginInput) => {
@@ -44,16 +63,17 @@ export function useAuth(): AuthState {
 
       const response = await authApi.login(credentials as LoginCredentials);
 
-      // FIX: Clear AuthManager cache after successful login to prevent cached failures
+      // Clear AuthManager cache after successful login
       authManager.clearCache();
       await authManager.forceRefresh();
+      
+      // Update store
       setUser(response.user);
 
       toast.success(response.message || 'Login successful');
 
       // Redirect based on user role
       if (response.user.roles.includes(UserRole.SELLER)) {
-
         router.push('/onboarding');
       } else {
         router.push('/dashboard');
@@ -75,9 +95,11 @@ export function useAuth(): AuthState {
 
       const response = await authApi.register(userData as RegisterCredentials);
 
-      // FIX: Clear AuthManager cache after successful registration to prevent cached failures
+      // Clear AuthManager cache after successful registration
       authManager.clearCache();
       await authManager.forceRefresh();
+      
+      // Update store
       setUser(response.user);
 
       toast.success(response.message || 'Registration successful');
@@ -109,11 +131,12 @@ export function useAuth(): AuthState {
 
       const response = await authApi.googleAuth(credential);
 
-      setUser(response.user);
-
-      // FIX: Clear AuthManager cache after successful login to prevent cached failures
+      // Clear AuthManager cache after successful login
       authManager.clearCache();
       await authManager.forceRefresh();
+      
+      // Update store
+      setUser(response.user);
 
       toast.success(response.message || 'Google login successful');
 
@@ -138,11 +161,8 @@ export function useAuth(): AuthState {
       console.log('🚪 Logging out');
       await authApi.logout();
 
-      // Clear auth state via AuthManager
+      // Clear auth state via AuthManager (also updates store)
       authManager.logout();
-
-      // Clear store state
-      storeLogout();
 
       toast.success('Logged out successfully');
       router.push('/login');
@@ -150,21 +170,17 @@ export function useAuth(): AuthState {
       console.error('❌ Logout error:', error);
       // Even if logout fails on server, clear local state
       authManager.logout();
-      storeLogout();
       router.push('/login');
     }
-  }, [router, storeLogout]);
+  }, [router]);
 
   const logoutGlobal = useCallback(async () => {
     try {
       console.log('🌍 Performing global logout');
       await authApi.logoutGlobal();
 
-      // Clear auth state via AuthManager
+      // Clear auth state via AuthManager (also updates store)
       authManager.logout();
-
-      // Clear store state
-      storeLogout();
 
       toast.success('Logged out from all devices successfully');
       router.push('/login');
@@ -172,59 +188,40 @@ export function useAuth(): AuthState {
       console.error('❌ Global logout error:', error);
       // Even if logout fails on server, clear local state
       authManager.logout();
-      storeLogout();
       router.push('/login');
     }
-  }, [router, storeLogout]);
-
-  const hasRole = useCallback((role: UserRole): boolean => {
-    return user?.roles?.includes(role) || false;
-  }, [user?.roles]);
+  }, [router]);
 
   const checkAuth = useCallback(async () => {
     try {
-      setLoading(true);
       console.log('🔍 Checking authentication status via AuthManager');
-
-      const result = await authManager.checkAuth();
-
-      // FIX: Set both user and isAuthenticated state properly
-      if (result.isAuthenticated && result.user) {
-        setUser(result.user);
-        console.log('✅ Authentication check successful:', result.user.email);
-      } else if (result.isAuthenticated && !result.user) {
-        // Token exists but user data not yet available - set authenticated state
-        useAuthStore.setState({
-          user: null,
-          isAuthenticated: true,
-          isLoading: false
-        });
-        console.log('✅ Authentication check successful (token exists, user data pending)');
-      } else {
-        setUser(null);
-        console.log('❌ Authentication check failed: No valid session');
-      }
+      
+      // AuthManager will update the store directly
+      await authManager.checkAuth();
+      
+      console.log('✅ Authentication check completed');
     } catch (error: any) {
       console.log('❌ Authentication check error:', error.message);
-      setUser(null);
 
       // Don't show error toast for expected auth failures
       if (error.response?.status !== 401) {
         toast.error('Authentication check failed. Please try logging in again.');
       }
-    } finally {
-      setLoading(false);
     }
-  }, [setUser, setLoading]);
+  }, []);
 
+  // Initialize auth on mount
   useEffect(() => {
-    checkAuth();
-  }, [checkAuth]);
+    if (!isInitialized) {
+      checkAuth();
+    }
+  }, [checkAuth, isInitialized]);
 
   return {
     user,
     isLoading,
     isAuthenticated,
+    isInitialized,
     login,
     register,
     loginWithGoogle,

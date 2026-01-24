@@ -1,29 +1,21 @@
 /**
- * Onboarding Flow - Main Orchestrator
- * Professional, OTA-standard onboarding experience
+ * Simplified Onboarding Flow
+ * Single store, no complex orchestration, clean step rendering
  */
 
 'use client';
 
-import React, { useState, useCallback, useEffect } from 'react';
+import React, { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { Loader2, AlertCircle } from 'lucide-react';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Loader2, AlertCircle, CheckCircle, Save } from 'lucide-react';
+import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
+import { Progress } from '@/components/ui/progress';
 import { toast } from 'sonner';
 import { useAuth } from '@/hooks/use-auth';
-import { UserRole } from '@/types/auth';
+import { useOnboardingStore } from '../store/onboarding';
 
-// Import hooks
-import { useOnboardingSession } from '../hooks/useOnboardingSession';
-import { useStepValidation } from '../hooks/useStepValidation';
-import { useAutosave } from '../hooks/useAutosave';
-
-// Import components
-import { ProgressIndicator } from './ProgressIndicator';
-import { StepContainer } from './StepContainer';
-
-// Import step components
+// Step components
 import { BasicDetailsStep } from './steps/BasicDetailsStep';
 import { LocationStep } from './steps/LocationStep';
 import { AmenitiesStep } from './steps/AmenitiesStep';
@@ -33,404 +25,192 @@ import { PoliciesStep } from './steps/PoliciesStep';
 import { BusinessFeaturesStep } from './steps/BusinessFeaturesStep';
 import { ReviewStep } from './steps/ReviewStep';
 
-// Import types
-import { 
-    OnboardingStep, 
-    BasicDetailsData, 
-    LocationData, 
-    AmenitiesData, 
-    ImagesData, 
-    RoomsData, 
-    PoliciesData, 
-    BusinessFeaturesData, 
-    ReviewData 
-} from '../types/onboarding';
-
-// Import API
-import { onboardingApi } from '../api/onboarding';
-
-// Define onboarding steps
-const ONBOARDING_STEPS: OnboardingStep[] = [
-    {
-        id: 'basic-details',
-        title: 'Basic Details',
-        description: 'Property name and type',
-        isOptional: false,
-        estimatedTime: 3,
-    },
-    {
-        id: 'location',
-        title: 'Location',
-        description: 'Address and contact information',
-        isOptional: false,
-        estimatedTime: 5,
-    },
-    {
-        id: 'amenities',
-        title: 'Amenities',
-        description: 'Select property amenities',
-        isOptional: false,
-        estimatedTime: 5,
-    },
-    {
-        id: 'images',
-        title: 'Images',
-        description: 'Upload property photos',
-        isOptional: false,
-        estimatedTime: 10,
-    },
-    {
-        id: 'rooms',
-        title: 'Rooms',
-        description: 'Configure room types and pricing',
-        isOptional: false,
-        estimatedTime: 12,
-    },
-    {
-        id: 'policies',
-        title: 'Policies',
-        description: 'Hotel policies and rules',
-        isOptional: false,
-        estimatedTime: 7,
-    },
-    {
-        id: 'business-features',
-        title: 'Business Features',
-        description: 'Business amenities (optional)',
-        isOptional: true,
-        estimatedTime: 5,
-    },
-    {
-        id: 'review',
-        title: 'Review & Publish',
-        description: 'Review and publish your property',
-        isOptional: false,
-        estimatedTime: 3,
-    },
+const STEPS = [
+  { id: 'basic-details', title: 'Basic Details', component: BasicDetailsStep },
+  { id: 'location', title: 'Location', component: LocationStep },
+  { id: 'amenities', title: 'Amenities', component: AmenitiesStep },
+  { id: 'images', title: 'Images', component: ImagesStep },
+  { id: 'rooms', title: 'Rooms', component: RoomsStep },
+  { id: 'policies', title: 'Policies', component: PoliciesStep },
+  { id: 'business-features', title: 'Business Features', component: BusinessFeaturesStep },
+  { id: 'review', title: 'Review', component: ReviewStep },
 ];
 
 interface OnboardingFlowProps {
-    hotelId?: string;
-    className?: string;
+  hotelId?: string;
 }
 
-export function OnboardingFlow({ hotelId, className }: OnboardingFlowProps) {
-    const router = useRouter();
-    const { user, isAuthenticated, hasRole, isLoading: authLoading } = useAuth();
+export function OnboardingFlow({ hotelId }: OnboardingFlowProps) {
+  const router = useRouter();
+  const { user } = useAuth();
+  
+  const {
+    session,
+    isLoading,
+    error,
+    currentStep,
+    isDirty,
+    isSaving,
+    lastSaved,
+    initSession,
+    saveNow,
+    nextStep,
+    prevStep,
+    reset,
+  } = useOnboardingStore();
 
-    // Session management
-    const {
-        session,
-        isLoading: sessionLoading,
-        error: sessionError,
-        draftData,
-        updateStepData,
-        getStepData,
-        refreshSession,
-        retry,
-    } = useOnboardingSession(hotelId);
-
-    // Current step state
-    const [currentStepIndex, setCurrentStepIndex] = useState(0);
-    const [isSubmitting, setIsSubmitting] = useState(false);
-
-    // Validation
-    const { validation, validateStep, setValidation } = useStepValidation(session?.id || null);
-
-    // Autosave
-    const { isSaving, lastSaved, saveNow } = useAutosave({
-        sessionId: session?.id || null,
-        draftData,
-        debounceMs: 2000,
-        enabled: true,
-    });
-
-    const currentStep = ONBOARDING_STEPS[currentStepIndex];
-    const currentStepData = getStepData(currentStep?.id);
-
-    // Validate current step whenever data changes
-    useEffect(() => {
-        if (currentStep && currentStepData) {
-            validateStep(currentStep.id, currentStepData);
-        }
-    }, [currentStep, currentStepData, validateStep]);
-
-    /**
-     * Handle step data change
-     */
-    const handleStepDataChange = useCallback((data: any) => {
-        if (currentStep) {
-            updateStepData(currentStep.id, data);
-        }
-    }, [currentStep, updateStepData]);
-
-    /**
-     * Handle next button click
-     */
-    const handleNext = useCallback(async () => {
-        if (!session || !currentStep) return;
-
-        try {
-            setIsSubmitting(true);
-
-            // Validate step
-            const stepValidation = await validateStep(currentStep.id, currentStepData);
-
-            if (!stepValidation.isValid && !currentStep.isOptional) {
-                toast.error('Please fix the errors before proceeding');
-                return;
-            }
-
-            // Save step to backend
-            await onboardingApi.updateStep(session.id, currentStep.id, currentStepData);
-
-            // Move to next step
-            if (currentStepIndex < ONBOARDING_STEPS.length - 1) {
-                setCurrentStepIndex(prev => prev + 1);
-                setValidation({ isValid: false, errors: [], warnings: [] });
-                toast.success('Progress saved');
-            } else {
-                // Last step - complete onboarding
-                await handleComplete();
-            }
-        } catch (error: any) {
-            console.error('Failed to proceed:', error);
-            toast.error(error.response?.data?.message || 'Failed to save progress');
-        } finally {
-            setIsSubmitting(false);
-        }
-    }, [session, currentStep, currentStepData, currentStepIndex, validateStep, setValidation]);
-
-    /**
-     * Handle back button click
-     */
-    const handleBack = useCallback(() => {
-        if (currentStepIndex > 0) {
-            setCurrentStepIndex(prev => prev - 1);
-            setValidation({ isValid: false, errors: [], warnings: [] });
-        }
-    }, [currentStepIndex, setValidation]);
-
-    /**
-     * Handle save draft
-     */
-    const handleSaveDraft = useCallback(async () => {
-        await saveNow();
-        toast.success('Draft saved');
-    }, [saveNow]);
-
-    /**
-     * Handle onboarding completion
-     */
-    const handleComplete = useCallback(async () => {
-        if (!session) return;
-
-        try {
-            setIsSubmitting(true);
-
-            const result = await onboardingApi.completeOnboarding(session.id);
-
-            toast.success('Onboarding completed successfully!');
-
-            // Redirect to hotel dashboard
-            router.push(`/seller/dashboard`);
-        } catch (error: any) {
-            console.error('Failed to complete onboarding:', error);
-            toast.error(error.response?.data?.message || 'Failed to complete onboarding');
-        } finally {
-            setIsSubmitting(false);
-        }
-    }, [session, router]);
-
-    /**
-     * Handle edit step from review
-     */
-    const handleEditStep = useCallback((stepIndex: number) => {
-        setCurrentStepIndex(stepIndex);
-        setValidation({ isValid: false, errors: [], warnings: [] });
-    }, [setValidation]);
-
-    /**
-     * Render current step component
-     */
-    const renderStepComponent = () => {
-        if (!session) return null;
-
-        const stepData = currentStepData || {};
-
-        switch (currentStep.id) {
-            case 'basic-details':
-                return (
-                    <BasicDetailsStep
-                        data={stepData as BasicDetailsData}
-                        onChange={handleStepDataChange}
-                    />
-                );
-
-            case 'location':
-                return (
-                    <LocationStep
-                        data={stepData as LocationData}
-                        onChange={handleStepDataChange}
-                    />
-                );
-
-            case 'amenities':
-                return (
-                    <AmenitiesStep
-                        data={stepData as AmenitiesData}
-                        onChange={handleStepDataChange}
-                    />
-                );
-
-            case 'images':
-                return (
-                    <ImagesStep
-                        data={stepData as ImagesData}
-                        onChange={handleStepDataChange}
-                        sessionId={session.id}
-                    />
-                );
-
-            case 'rooms':
-                return (
-                    <RoomsStep
-                        data={stepData as RoomsData}
-                        onChange={handleStepDataChange}
-                    />
-                );
-
-            case 'policies':
-                return (
-                    <PoliciesStep
-                        data={stepData as PoliciesData}
-                        onChange={handleStepDataChange}
-                    />
-                );
-
-            case 'business-features':
-                return (
-                    <BusinessFeaturesStep
-                        data={stepData as BusinessFeaturesData}
-                        onChange={handleStepDataChange}
-                    />
-                );
-
-            case 'review':
-                return (
-                    <ReviewStep
-                        draftData={draftData}
-                        onEditStep={handleEditStep}
-                    />
-                );
-
-            default:
-                return <div>Unknown step</div>;
-        }
-    };
-
-    // Loading state
-    if (authLoading || sessionLoading) {
-        return (
-            <div className="min-h-screen flex items-center justify-center bg-slate-50">
-                <Card className="w-full max-w-md">
-                    <CardContent className="flex flex-col items-center justify-center py-8">
-                        <Loader2 className="h-8 w-8 animate-spin text-blue-600 mb-4" />
-                        <p className="text-slate-600">Initializing onboarding...</p>
-                    </CardContent>
-                </Card>
-            </div>
-        );
+  // Initialize session
+  useEffect(() => {
+    if (!session && !isLoading && !error) {
+      initSession(hotelId);
     }
+  }, [session, isLoading, error, hotelId, initSession]);
 
-    // Error state
-    if (sessionError) {
-        return (
-            <div className="min-h-screen flex items-center justify-center bg-slate-50">
-                <Card className="w-full max-w-md">
-                    <CardHeader className="text-center">
-                        <CardTitle className="flex items-center gap-2 justify-center text-red-600">
-                            <AlertCircle className="h-5 w-5" />
-                            Error
-                        </CardTitle>
-                        <CardDescription>{sessionError}</CardDescription>
-                    </CardHeader>
-                    <CardContent className="text-center space-y-3">
-                        <Button onClick={retry}>Try Again</Button>
-                        <Button variant="outline" onClick={() => window.location.reload()}>
-                            Refresh Page
-                        </Button>
-                    </CardContent>
-                </Card>
-            </div>
-        );
+  // Handle save
+  const handleSave = async () => {
+    try {
+      await saveNow();
+      toast.success('Progress saved successfully');
+    } catch (error) {
+      toast.error('Failed to save progress');
     }
+  };
 
-    // Authentication check
-    if (!isAuthenticated || !hasRole(UserRole.SELLER)) {
-        return (
-            <div className="min-h-screen flex items-center justify-center bg-slate-50">
-                <Card className="w-full max-w-md">
-                    <CardHeader className="text-center">
-                        <CardTitle>Access Required</CardTitle>
-                        <CardDescription>
-                            Please log in as a hotel partner to access the onboarding process
-                        </CardDescription>
-                    </CardHeader>
-                    <CardContent className="text-center space-y-3">
-                        <Button onClick={() => router.push('/login?redirect=/onboarding')} className="w-full">
-                            Log In
-                        </Button>
-                        <Button
-                            variant="outline"
-                            onClick={() => router.push('/register?type=seller')}
-                            className="w-full"
-                        >
-                            Register as Partner
-                        </Button>
-                    </CardContent>
-                </Card>
-            </div>
-        );
+  // Handle navigation
+  const handleNext = () => {
+    if (currentStep < STEPS.length - 1) {
+      nextStep();
+    } else {
+      // Final submission
+      handleSubmit();
     }
+  };
 
-    // Main onboarding UI
+  const handlePrev = () => {
+    if (currentStep > 0) {
+      prevStep();
+    }
+  };
+
+  const handleSubmit = async () => {
+    try {
+      await saveNow();
+      toast.success('Onboarding completed successfully!');
+      router.push('/dashboard');
+    } catch (error) {
+      toast.error('Failed to complete onboarding');
+    }
+  };
+
+  // Loading state
+  if (isLoading) {
     return (
-        <div className={`min-h-screen bg-slate-50 py-8 px-4 ${className || ''}`}>
-            <div className="max-w-6xl mx-auto space-y-8">
-                {/* Header */}
-                <div className="text-center">
-                    <h1 className="text-3xl font-bold text-gray-900">Property Onboarding</h1>
-                    <p className="text-gray-600 mt-2">
-                        Complete these steps to list your property
-                    </p>
-                </div>
-
-                {/* Progress Indicator */}
-                <ProgressIndicator
-                    steps={ONBOARDING_STEPS}
-                    currentStepIndex={currentStepIndex}
-                    completedSteps={session?.completedSteps || []}
-                />
-
-                {/* Step Content */}
-                <StepContainer
-                    title={currentStep.title}
-                    description={currentStep.description}
-                    validation={validation}
-                    isFirstStep={currentStepIndex === 0}
-                    isLastStep={currentStepIndex === ONBOARDING_STEPS.length - 1}
-                    isOptional={currentStep.isOptional}
-                    onNext={handleNext}
-                    onBack={handleBack}
-                    onSaveDraft={handleSaveDraft}
-                    isLoading={isSubmitting}
-                    isSaving={isSaving}
-                    lastSaved={lastSaved}
-                >
-                    {renderStepComponent()}
-                </StepContainer>
-            </div>
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="text-center">
+          <Loader2 className="h-8 w-8 animate-spin mx-auto mb-4" />
+          <p>Initializing onboarding...</p>
         </div>
+      </div>
     );
+  }
+
+  // Error state
+  if (error) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <Card className="w-full max-w-md">
+          <CardContent className="pt-6">
+            <div className="text-center">
+              <AlertCircle className="h-8 w-8 text-red-500 mx-auto mb-4" />
+              <h3 className="text-lg font-semibold mb-2">Something went wrong</h3>
+              <p className="text-gray-600 mb-4">{error}</p>
+              <Button onClick={() => reset()}>Try Again</Button>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
+  const currentStepData = STEPS[currentStep];
+  const StepComponent = currentStepData.component;
+  const progress = ((currentStep + 1) / STEPS.length) * 100;
+
+  return (
+    <div className="min-h-screen bg-gray-50 py-8">
+      <div className="max-w-4xl mx-auto px-4">
+        {/* Header */}
+        <div className="mb-8">
+          <h1 className="text-3xl font-bold text-gray-900 mb-2">
+            Complete Your Hotel Setup
+          </h1>
+          <p className="text-gray-600">
+            Step {currentStep + 1} of {STEPS.length}: {currentStepData.title}
+          </p>
+        </div>
+
+        {/* Progress Bar */}
+        <div className="mb-8">
+          <Progress value={progress} className="h-2" />
+          <div className="flex justify-between mt-2 text-sm text-gray-500">
+            <span>Progress: {Math.round(progress)}%</span>
+            <div className="flex items-center gap-2">
+              {isDirty && (
+                <span className="text-orange-500">Unsaved changes</span>
+              )}
+              {isSaving && (
+                <>
+                  <Save className="h-4 w-4 animate-pulse" />
+                  <span>Saving...</span>
+                </>
+              )}
+              {lastSaved && !isDirty && (
+                <>
+                  <CheckCircle className="h-4 w-4 text-green-500" />
+                  <span>Saved {lastSaved.toLocaleTimeString()}</span>
+                </>
+              )}
+            </div>
+          </div>
+        </div>
+
+        {/* Step Content */}
+        <div className="mb-8">
+          <StepComponent />
+        </div>
+
+        {/* Navigation */}
+        <div className="flex justify-between items-center">
+          <Button
+            variant="outline"
+            onClick={handlePrev}
+            disabled={currentStep === 0}
+          >
+            Previous
+          </Button>
+
+          <div className="flex gap-2">
+            <Button
+              variant="outline"
+              onClick={handleSave}
+              disabled={isSaving || !isDirty}
+            >
+              {isSaving ? (
+                <>
+                  <Save className="h-4 w-4 animate-pulse mr-2" />
+                  Saving...
+                </>
+              ) : (
+                'Save Progress'
+              )}
+            </Button>
+
+            <Button onClick={handleNext}>
+              {currentStep === STEPS.length - 1 ? 'Complete Setup' : 'Next'}
+            </Button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
 }

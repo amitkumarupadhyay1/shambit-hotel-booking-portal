@@ -1,22 +1,18 @@
 /**
- * AuthManager - Singleton pattern for auth state management
+ * AuthManager - Simplified API operations manager
  * 
- * This class addresses race conditions by:
- * 1. Implementing singleton pattern to prevent multiple simultaneous auth checks
- * 2. Request deduplication for auth operations
- * 3. Promise caching for in-flight requests
- * 4. Centralized auth state management
+ * Responsibilities:
+ * 1. API calls for auth operations
+ * 2. Token management via SecureTokenManager
+ * 3. Request deduplication
  * 
- * Features:
- * - Single auth check per session
- * - Request deduplication prevents API spam
- * - Promise caching for concurrent requests
- * - Automatic cleanup of completed requests
+ * State management is handled by Zustand store
  */
 
 import { User } from '@/types/auth';
 import { secureTokenManager } from './secure-token-manager';
 import apiClient from '../api/client';
+import { useAuthStore } from '../store/auth-store';
 
 interface AuthCheckResult {
   user: User | null;
@@ -27,9 +23,6 @@ export class AuthManager {
   private static instance: AuthManager;
   private authPromise: Promise<AuthCheckResult> | null = null;
   private isChecking = false;
-  private lastAuthCheck = 0;
-  private lastUser: User | null = null; // Cache the last successful user
-  private readonly AUTH_CACHE_DURATION = 30000; // 30 seconds
 
   private constructor() {
     console.log('🔐 AuthManager initialized');
@@ -47,10 +40,10 @@ export class AuthManager {
 
   /**
    * Check authentication status with request deduplication
-   * Returns cached result if recent check was performed
+   * Updates Zustand store directly
    */
   public async checkAuth(): Promise<AuthCheckResult> {
-    const now = Date.now();
+    const store = useAuthStore.getState();
     
     // If auth check is already in progress, return the existing promise
     if (this.isChecking && this.authPromise) {
@@ -59,39 +52,28 @@ export class AuthManager {
     }
 
     // Return cached result if recent check was performed AND we have a valid token
-    if (now - this.lastAuthCheck < this.AUTH_CACHE_DURATION) {
-      const hasToken = secureTokenManager.hasValidToken();
-      if (hasToken) {
-        console.log('🔐 Using cached auth result');
-        // FIX: Only cache successful authentication results, not failures
-        if (this.lastUser) {
-          return { user: this.lastUser, isAuthenticated: true };
-        } else {
-          // Token exists but no cached user - this means login happened recently
-          // Force a fresh auth check to get the user data
-          console.log('🔐 Token exists but no cached user, forcing fresh check');
-          this.lastAuthCheck = 0; // Reset cache to force fresh check
-          return this.checkAuth(); // Recursive call will perform fresh check
-        }
-      } else {
-        console.log('🔐 No valid token, clearing cache');
-        this.lastAuthCheck = 0; // Clear cache if no valid token
-      }
+    if (store.isTokenValid() && store.user) {
+      console.log('🔐 Using cached auth result from store');
+      return { user: store.user, isAuthenticated: true };
     }
 
     // Start new auth check
     this.isChecking = true;
+    store.setLoading(true);
     this.authPromise = this.performAuthCheck();
 
     try {
       const result = await this.authPromise;
-      this.lastAuthCheck = now;
-      this.lastUser = result.user; // Cache the user for future cached responses
+      
+      // Update store with result
+      store.setUser(result.user);
+      
       return result;
     } finally {
       // Clean up state
       this.isChecking = false;
       this.authPromise = null;
+      store.setLoading(false);
     }
   }
 
@@ -131,7 +113,8 @@ export class AuthManager {
    */
   public async forceRefresh(): Promise<AuthCheckResult> {
     console.log('🔐 Forcing auth refresh...');
-    this.lastAuthCheck = 0; // Reset cache
+    const store = useAuthStore.getState();
+    store.setInitialized(false); // Reset cache
     return this.checkAuth();
   }
 
@@ -141,20 +124,24 @@ export class AuthManager {
   public logout(): void {
     console.log('🔐 AuthManager logout');
     secureTokenManager.clearToken();
-    this.lastAuthCheck = 0;
-    this.lastUser = null; // Clear cached user
+    
+    // Update store
+    const store = useAuthStore.getState();
+    store.logout();
+    
+    // Clear internal state
     this.isChecking = false;
     this.authPromise = null;
   }
 
   /**
    * Clear auth cache (MANDATORY for login flow)
-   * This prevents cached failures from blocking post-login auth checks
    */
   public clearCache(): void {
     console.log('🔐 AuthManager cache cleared');
-    this.lastAuthCheck = 0;
-    this.lastUser = null;
+    const store = useAuthStore.getState();
+    store.setInitialized(false);
+    
     this.isChecking = false;
     this.authPromise = null;
   }

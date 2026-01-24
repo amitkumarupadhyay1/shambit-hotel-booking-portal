@@ -29,7 +29,7 @@ export interface OnboardingStep {
 // Step data interfaces
 export interface BasicDetailsData {
   name: string;
-  hotelType: 'HOTEL' | 'RESORT' | 'GUEST_HOUSE' | 'HOMESTAY' | 'APARTMENT';
+  hotelType: 'HOTEL' | 'RESORT' | 'GUESTHOUSE' | 'HOMESTAY' | 'APARTMENT';
   description?: string;
 }
 
@@ -44,7 +44,8 @@ export interface LocationData {
 }
 
 export interface AmenitiesData {
-  selectedAmenities: string[];
+  amenities: string[];
+  services?: string[];
 }
 
 export interface UploadedImage {
@@ -56,21 +57,26 @@ export interface UploadedImage {
 }
 
 export interface ImagesData {
-  images: UploadedImage[];
+  images: Array<{
+    url: string;
+    type: 'EXTERIOR' | 'LOBBY' | 'ROOM' | 'AMENITY' | 'OTHER';
+    caption?: string;
+  }>;
 }
 
 export interface RoomData {
   name: string;
-  roomType: 'SINGLE' | 'DOUBLE' | 'DELUXE' | 'SUITE' | 'FAMILY';
+  type: 'SINGLE' | 'DOUBLE' | 'SUITE' | 'FAMILY' | 'DORMITORY';
+  capacity: number;
   basePrice: number;
-  maxOccupancy: number;
-  bedCount: number;
-  bedType: string;
-  description?: string;
-  weekendPrice?: number;
-  roomSize?: number;
   amenities?: string[];
-  images?: UploadedImage[];
+  images?: string[];
+  // New fields from consolidated schema
+  maxOccupancy?: number;
+  bedCount?: number;
+  bedType?: string;
+  roomSize?: number;
+  weekendPrice?: number;
 }
 
 export interface RoomsData {
@@ -78,12 +84,12 @@ export interface RoomsData {
 }
 
 export interface PoliciesData {
-  checkInTime: string;
-  checkOutTime: string;
-  cancellationPolicy: string;
-  petPolicy: string;
-  smokingPolicy: string;
-  houseRules?: string;
+  checkIn: string;
+  checkOut: string;
+  cancellationPolicy: 'FLEXIBLE' | 'MODERATE' | 'STRICT';
+  childPolicy: string;
+  petPolicy: 'ALLOWED' | 'NOT_ALLOWED' | 'ON_REQUEST';
+  smokingPolicy: 'ALLOWED' | 'NOT_ALLOWED' | 'DESIGNATED_AREAS';
 }
 
 export interface MeetingRoom {
@@ -93,6 +99,9 @@ export interface MeetingRoom {
 }
 
 export interface BusinessFeaturesData {
+  instantBooking: boolean;
+  paymentMethods: string[];
+  languages: string[];
   meetingRooms?: MeetingRoom[];
   connectivity?: {
     wifiSpeed?: string;
@@ -102,18 +111,18 @@ export interface BusinessFeaturesData {
 }
 
 export interface ReviewData {
-  // This step just displays summary, no data to collect
+  agreedToTerms: boolean;
 }
 
 // Combined step data type
-export type StepData = 
-  | BasicDetailsData 
-  | LocationData 
-  | AmenitiesData 
-  | ImagesData 
-  | RoomsData 
-  | PoliciesData 
-  | BusinessFeaturesData 
+export type StepData =
+  | BasicDetailsData
+  | LocationData
+  | AmenitiesData
+  | ImagesData
+  | RoomsData
+  | PoliciesData
+  | BusinessFeaturesData
   | ReviewData;
 
 export interface OnboardingDraft {

@@ -1,152 +1,102 @@
 /**
- * Amenities Step
- * Select property amenities from categorized list
+ * Simplified Amenities Step
  */
 
-'use client';
-
-import React, { useState, useEffect } from 'react';
+import React from 'react';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Checkbox } from '@/components/ui/checkbox';
-import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Search } from 'lucide-react';
-import { AmenitiesData } from '../../types/onboarding';
+import { useStepForm } from '../../hooks/useStepForm';
 
-interface AmenityCategory {
-    id: string;
-    name: string;
-    amenities: Array<{ id: string; name: string; icon?: string }>;
+interface AmenitiesData {
+  amenities: string[];
+  services: string[];
 }
 
-// Sample amenities - in production, fetch from backend
-const AMENITY_CATEGORIES: AmenityCategory[] = [
-    {
-        id: 'essentials',
-        name: 'Essentials',
-        amenities: [
-            { id: 'wifi', name: 'Free WiFi' },
-            { id: 'parking', name: 'Free Parking' },
-            { id: 'ac', name: 'Air Conditioning' },
-            { id: 'tv', name: 'TV' },
-            { id: 'hot-water', name: 'Hot Water' },
-        ],
-    },
-    {
-        id: 'dining',
-        name: 'Dining',
-        amenities: [
-            { id: 'restaurant', name: 'Restaurant' },
-            { id: 'room-service', name: 'Room Service' },
-            { id: 'breakfast', name: 'Breakfast' },
-            { id: 'bar', name: 'Bar/Lounge' },
-        ],
-    },
-    {
-        id: 'recreation',
-        name: 'Recreation',
-        amenities: [
-            { id: 'pool', name: 'Swimming Pool' },
-            { id: 'gym', name: 'Fitness Center' },
-            { id: 'spa', name: 'Spa' },
-            { id: 'garden', name: 'Garden' },
-        ],
-    },
-    {
-        id: 'services',
-        name: 'Services',
-        amenities: [
-            { id: 'front-desk', name: '24/7 Front Desk' },
-            { id: 'concierge', name: 'Concierge' },
-            { id: 'laundry', name: 'Laundry Service' },
-            { id: 'housekeeping', name: 'Housekeeping' },
-        ],
-    },
+const defaultData: AmenitiesData = {
+  amenities: [],
+  services: [],
+};
+
+const AMENITIES = [
+  'WiFi', 'Parking', 'Pool', 'Gym', 'Spa', 'Restaurant', 'Bar', 'Room Service',
+  'Laundry', 'Concierge', 'Business Center', 'Conference Room', 'Pet Friendly'
 ];
 
-interface AmenitiesStepProps {
-    data: AmenitiesData;
-    onChange: (data: AmenitiesData) => void;
-}
+const SERVICES = [
+  'Airport Shuttle', 'Car Rental', 'Tour Booking', 'Currency Exchange',
+  'Babysitting', 'Dry Cleaning', 'Shoe Shine', 'Wake-up Service'
+];
 
-export function AmenitiesStep({ data, onChange }: AmenitiesStepProps) {
-    const [selectedAmenities, setSelectedAmenities] = useState<string[]>(
-        data?.selectedAmenities || []
-    );
-    const [searchQuery, setSearchQuery] = useState('');
+export function AmenitiesStep() {
+  const { formData, errors, updateField } = useStepForm({
+    stepId: 'amenities',
+    defaultData,
+  });
 
-    useEffect(() => {
-        onChange({ selectedAmenities });
-    }, [selectedAmenities, onChange]);
+  const toggleAmenity = (amenity: string) => {
+    const current = formData.amenities || [];
+    const updated = current.includes(amenity)
+      ? current.filter(a => a !== amenity)
+      : [...current, amenity];
+    updateField('amenities', updated);
+  };
 
-    const toggleAmenity = (amenityId: string) => {
-        setSelectedAmenities(prev =>
-            prev.includes(amenityId)
-                ? prev.filter(id => id !== amenityId)
-                : [...prev, amenityId]
-        );
-    };
+  const toggleService = (service: string) => {
+    const current = formData.services || [];
+    const updated = current.includes(service)
+      ? current.filter(s => s !== service)
+      : [...current, service];
+    updateField('services', updated);
+  };
 
-    // Filter amenities based on search
-    const filteredCategories = AMENITY_CATEGORIES.map(category => ({
-        ...category,
-        amenities: category.amenities.filter(amenity =>
-            amenity.name.toLowerCase().includes(searchQuery.toLowerCase())
-        ),
-    })).filter(category => category.amenities.length > 0);
-
-    return (
-        <div className="space-y-6">
-            {/* Search */}
-            <div className="relative">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-                <Input
-                    value={searchQuery}
-                    onChange={(e) => setSearchQuery(e.target.value)}
-                    placeholder="Search amenities..."
-                    className="pl-10"
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle>Amenities & Services</CardTitle>
+      </CardHeader>
+      <CardContent className="space-y-6">
+        {/* Amenities */}
+        <div className="space-y-4">
+          <Label className="text-base font-medium">Amenities *</Label>
+          {errors.amenities && (
+            <p className="text-sm text-red-500">{errors.amenities}</p>
+          )}
+          <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+            {AMENITIES.map((amenity) => (
+              <div key={amenity} className="flex items-center space-x-2">
+                <Checkbox
+                  id={amenity}
+                  checked={formData.amenities?.includes(amenity) || false}
+                  onCheckedChange={() => toggleAmenity(amenity)}
                 />
-            </div>
-
-            {/* Selected count */}
-            <div className="text-sm text-gray-600">
-                {selectedAmenities.length} amenities selected
-            </div>
-
-            {/* Amenity categories */}
-            <div className="space-y-6">
-                {filteredCategories.map(category => (
-                    <div key={category.id} className="space-y-3">
-                        <h3 className="font-semibold text-gray-900">{category.name}</h3>
-                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                            {category.amenities.map(amenity => (
-                                <div
-                                    key={amenity.id}
-                                    className="flex items-center space-x-3 p-3 rounded-lg border hover:bg-gray-50 cursor-pointer transition-colors"
-                                    onClick={() => toggleAmenity(amenity.id)}
-                                >
-                                    <Checkbox
-                                        id={amenity.id}
-                                        checked={selectedAmenities.includes(amenity.id)}
-                                        onCheckedChange={() => toggleAmenity(amenity.id)}
-                                    />
-                                    <Label
-                                        htmlFor={amenity.id}
-                                        className="flex-1 cursor-pointer"
-                                    >
-                                        {amenity.name}
-                                    </Label>
-                                </div>
-                            ))}
-                        </div>
-                    </div>
-                ))}
-            </div>
-
-            {filteredCategories.length === 0 && (
-                <div className="text-center py-8 text-gray-500">
-                    No amenities found matching "{searchQuery}"
-                </div>
-            )}
+                <Label htmlFor={amenity} className="text-sm">
+                  {amenity}
+                </Label>
+              </div>
+            ))}
+          </div>
         </div>
-    );
+
+        {/* Services */}
+        <div className="space-y-4">
+          <Label className="text-base font-medium">Additional Services</Label>
+          <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+            {SERVICES.map((service) => (
+              <div key={service} className="flex items-center space-x-2">
+                <Checkbox
+                  id={service}
+                  checked={formData.services?.includes(service) || false}
+                  onCheckedChange={() => toggleService(service)}
+                />
+                <Label htmlFor={service} className="text-sm">
+                  {service}
+                </Label>
+              </div>
+            ))}
+          </div>
+        </div>
+      </CardContent>
+    </Card>
+  );
 }

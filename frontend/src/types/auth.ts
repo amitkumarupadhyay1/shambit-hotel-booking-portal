@@ -37,7 +37,9 @@ export interface AuthState {
   user: User | null;
   isAuthenticated: boolean;
   isLoading: boolean;
+  isInitialized: boolean; // Added for better initialization tracking
   setUser: (user: User | null) => void;
   setLoading: (loading: boolean) => void;
+  setInitialized: (initialized: boolean) => void; // Added
   logout: () => void;
 }
