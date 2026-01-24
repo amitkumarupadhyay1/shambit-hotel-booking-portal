@@ -18,50 +18,66 @@ export const onboardingApi = {
    * Create a new onboarding session
    */
   async createSession(data?: { hotelId?: string }): Promise<OnboardingSession> {
-    const response = await apiClient.post('/onboarding/sessions', data);
-    return response.data.data;
+    const response = await apiClient.post('/hotels/integrated-onboarding/sessions', data);
+    const sessionData = response.data.data;
+    return {
+      id: sessionData.sessionId,
+      hotelId: sessionData.hotelId,
+      currentStep: sessionData.currentStep,
+      completedSteps: sessionData.completedSteps || [],
+      expiresAt: sessionData.expiresAt,
+    };
   },
 
   /**
    * Get session status
    */
   async getSession(sessionId: string): Promise<OnboardingSession> {
-    const response = await apiClient.get(`/onboarding/sessions/${sessionId}`);
-    return response.data.data;
+    const response = await apiClient.get(`/hotels/integrated-onboarding/sessions/${sessionId}/status`);
+    const sessionData = response.data.data.session;
+    return {
+      id: sessionId,
+      hotelId: sessionData.hotelId || 'unknown',
+      currentStep: sessionData.currentStep,
+      completedSteps: sessionData.completedSteps || [],
+      expiresAt: sessionData.expiresAt || new Date().toISOString(),
+    };
   },
 
   /**
    * Save step data
    */
   async saveStep(sessionId: string, stepId: string, data: any): Promise<void> {
-    await apiClient.post(`/onboarding/sessions/${sessionId}/steps/${stepId}`, data);
+    await apiClient.put(`/hotels/integrated-onboarding/sessions/${sessionId}/steps/${stepId}`, data);
   },
 
   /**
    * Update step data
    */
   async updateStep(sessionId: string, stepId: string, data: any): Promise<void> {
-    await apiClient.put(`/onboarding/sessions/${sessionId}/steps/${stepId}`, data);
+    await apiClient.put(`/hotels/integrated-onboarding/sessions/${sessionId}/steps/${stepId}`, data);
   },
 
   /**
    * Get step data
    */
   async getStep(sessionId: string, stepId: string): Promise<any> {
-    const response = await apiClient.get(`/onboarding/sessions/${sessionId}/steps/${stepId}`);
-    return response.data.data;
+    const response = await apiClient.get(`/hotels/integrated-onboarding/sessions/${sessionId}/draft`);
+    return response.data.data[stepId] || {};
   },
 
   /**
    * Complete onboarding
    */
   async complete(sessionId: string): Promise<{ hotelId: string }> {
-    const response = await apiClient.post(`/onboarding/sessions/${sessionId}/complete`);
-    return response.data.data;
+    const response = await apiClient.post(`/hotels/integrated-onboarding/sessions/${sessionId}/complete`);
+    return {
+      hotelId: response.data.data.hotelId,
+    };
   },
 
   /**
-   * Upload images
+   * Upload images - using existing image upload endpoint
    */
   async uploadImages(sessionId: string, files: File[]): Promise<{
     images: Array<{
@@ -75,8 +91,9 @@ export const onboardingApi = {
       formData.append('images', file);
     });
 
+    // Use the existing image upload endpoint
     const response = await apiClient.post(
-      `/onboarding/sessions/${sessionId}/images`,
+      `/hotels/images/upload`,
       formData,
       {
         headers: {
@@ -85,6 +102,6 @@ export const onboardingApi = {
       }
     );
 
-    return response.data.data;
+    return response.data;
   },
 };

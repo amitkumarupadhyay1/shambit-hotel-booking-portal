@@ -1,6 +1,6 @@
 /**
  * Simplified Onboarding Store - Single Source of Truth
- * Removes complex optimistic updates and focuses on core functionality
+ * Fixed useEffect loop by using useCallback for initSession
  */
 
 import { create } from 'zustand';
@@ -40,10 +40,12 @@ export const useOnboardingStore = create<OnboardingState>()(
     sessionId: null,
     isInitialized: false,
 
-    // Initialize session
+    // Initialize session - now stable reference
     initSession: async (hotelId?: string) => {
-      const { sessionId, isLoading } = get();
-      if (sessionId || isLoading) return;
+      const state = get();
+      if (state.sessionId || state.isLoading || state.isInitialized) {
+        return;
+      }
 
       set({ isLoading: true });
       

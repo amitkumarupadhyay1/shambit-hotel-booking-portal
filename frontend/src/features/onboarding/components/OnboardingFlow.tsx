@@ -1,11 +1,11 @@
 /**
  * Simplified Onboarding Flow
- * Uses new step definitions and simplified state management
+ * Fixed useEffect loop by using useCallback and removing initSession from dependencies
  */
 
 'use client';
 
-import React, { useEffect } from 'react';
+import React, { useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { Loader2, AlertCircle } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
@@ -22,7 +22,7 @@ interface OnboardingFlowProps {
 
 export function OnboardingFlow({ hotelId }: OnboardingFlowProps) {
   const router = useRouter();
-  const { user } = useAuth();
+  const { user, isAuthenticated, isLoading: authLoading } = useAuth();
   
   const {
     sessionId,
@@ -30,18 +30,51 @@ export function OnboardingFlow({ hotelId }: OnboardingFlowProps) {
     isLoading,
     errors,
     isInitialized,
-    initSession,
     nextStep,
     prevStep,
     reset,
   } = useOnboardingStore();
 
-  // Initialize session
-  useEffect(() => {
-    if (!sessionId && !isLoading && !isInitialized) {
-      initSession(hotelId);
+  // Get initSession function directly from store to avoid dependency issues
+  const initSession = useCallback(() => {
+    const store = useOnboardingStore.getState();
+    if (!store.sessionId && !store.isLoading && !store.isInitialized) {
+      store.initSession(hotelId);
     }
-  }, [sessionId, isLoading, isInitialized, hotelId, initSession]);
+  }, [hotelId]);
+
+  // Check authentication first
+  useEffect(() => {
+    if (!authLoading && !isAuthenticated) {
+      // Redirect to login with return URL
+      router.push('/login?redirect=/onboarding');
+      return;
+    }
+  }, [authLoading, isAuthenticated, router]);
+
+  // Initialize session only after authentication is confirmed
+  useEffect(() => {
+    if (isAuthenticated && user) {
+      initSession();
+    }
+  }, [isAuthenticated, user, initSession]);
+
+  // Show loading while checking authentication
+  if (authLoading) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="text-center">
+          <Loader2 className="h-8 w-8 animate-spin mx-auto mb-4" />
+          <p>Checking authentication...</p>
+        </div>
+      </div>
+    );
+  }
+
+  // Don't render anything if not authenticated (will redirect)
+  if (!isAuthenticated) {
+    return null;
+  }
 
   // Handle navigation
   const handleNext = () => {

@@ -17,7 +17,6 @@ import { AdminHotelsModule } from './modules/admin-hotels/admin-hotels.module';
 import { AvailabilityModule } from './modules/availability/availability.module';
 import { SearchModule } from './modules/search/search.module';
 import { SellerDashboardModule } from './modules/seller-dashboard/seller-dashboard.module';
-import { RequestDeduplicationMiddleware } from './common/middleware/request-deduplication.middleware';
 import { CSRFProtectionMiddleware } from './common/middleware/csrf-protection.middleware';
 import { CsrfController } from './common/controllers/csrf.controller';
 import { EnhancedThrottlerGuard } from './common/guards/enhanced-throttler.guard';
@@ -70,10 +69,11 @@ export class AppModule implements NestModule {
       .exclude('/health', '/metrics')
       .forRoutes('*');
 
-    // Apply request deduplication middleware after CSRF
-    consumer
-      .apply(RequestDeduplicationMiddleware)
-      .exclude('/health', '/metrics')
-      .forRoutes('*');
+    // Temporarily disable request deduplication middleware to fix duplicate request issue
+    // TODO: Re-implement with simpler logic if needed
+    // consumer
+    //   .apply(RequestDeduplicationMiddleware)
+    //   .exclude('/health', '/metrics')
+    //   .forRoutes('*');
   }
 }

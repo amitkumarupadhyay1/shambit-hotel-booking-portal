@@ -63,6 +63,36 @@ export class OnboardingService {
   }
 
   /**
+   * Get onboarding session by ID
+   */
+  async getOnboardingSession(sessionId: string, userId: string): Promise<OnboardingSession> {
+    const session = await this.onboardingSessionRepository.findOne({
+      where: { id: sessionId },
+    });
+
+    if (!session) {
+      throw new NotFoundException('Onboarding session not found');
+    }
+
+    // Check permissions
+    await this.hotelRbacService.enforcePermission({
+      userId,
+      hotelId: session.enhancedHotelId,
+      permission: OnboardingPermission.VIEW_SESSION,
+    });
+
+    return session;
+  }
+
+  /**
+   * Get step data from session
+   */
+  async getOnboardingStepData(sessionId: string, stepId: string, userId: string): Promise<StepData> {
+    const session = await this.getOnboardingSession(sessionId, userId);
+    return session.draftData[stepId] || {};
+  }
+
+  /**
    * Create a new onboarding session for a hotel
    * Requirements: 6.1, 6.4 - Mobile-first onboarding with offline support
    * Requirements: 10.1 - Role-based access control
@@ -87,16 +117,17 @@ export class OnboardingService {
       throw new NotFoundException('User not found');
     }
 
-    // Verify hotel exists
-    const hotel = await this.enhancedHotelRepository.findOne({ where: { id: hotelId } });
-    if (!hotel) {
-      throw new NotFoundException('Hotel not found');
+    // For new hotels, we might not have the hotel entity yet, so skip hotel verification
+    if (hotelId !== 'new') {
+      const hotel = await this.enhancedHotelRepository.findOne({ where: { id: hotelId } });
+      if (!hotel) {
+        throw new NotFoundException('Hotel not found');
+      }
     }
 
     // Check if there's already an active session
     const existingSession = await this.onboardingSessionRepository.findOne({
       where: {
-        enhancedHotelId: hotelId,
         userId,
         sessionStatus: SessionStatus.ACTIVE,
       },

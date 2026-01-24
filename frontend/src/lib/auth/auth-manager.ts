@@ -154,13 +154,6 @@ export class AuthManager {
   }
 
   /**
-   * Get token info from SecureTokenManager
-   */
-  public getTokenInfo() {
-    return secureTokenManager.getTokenInfo();
-  }
-
-  /**
    * Check if user has valid token
    */
   public hasValidToken(): boolean {
