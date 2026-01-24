@@ -15,38 +15,10 @@ export default function OnboardingPage() {
         setMounted(true);
     }, []);
 
-    // Memoized element - prevents double mount/unmount of flow
-    const flow = <IntegratedOnboardingFlow />;
-
+    // Simplified approach - just render the flow directly
     return (
         <OnboardingErrorBoundary>
-            {!mounted ? (
-                // SSR + first client render match - stable tree
-                flow
-            ) : (
-                // Progressive enhancement runs after hydration
-                <ProgressiveEnhancement
-                    mobileComponent={({ viewport }) => (
-                        <MobileOptimizedLayout viewport={viewport}>
-                            {flow}
-                        </MobileOptimizedLayout>
-                    )}
-                    tabletComponent={({ viewport }) => (
-                        <TabletOptimizedLayout viewport={viewport}>
-                            {flow}
-                        </TabletOptimizedLayout>
-                    )}
-                    desktopComponent={({ viewport }) => (
-                        <DesktopOptimizedLayout viewport={viewport}>
-                            {flow}
-                        </DesktopOptimizedLayout>
-                    )}
-                    enableViewportToggle={enableViewportToggle}
-                >
-                    {/* Fallback for when progressive enhancement components are not available */}
-                    {flow}
-                </ProgressiveEnhancement>
-            )}
+            <IntegratedOnboardingFlow />
         </OnboardingErrorBoundary>
     );
 }

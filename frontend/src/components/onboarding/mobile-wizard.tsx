@@ -428,7 +428,7 @@ export const MobileWizard: React.FC<MobileWizardProps> = ({
     <div className={cn("min-h-screen bg-slate-50 flex flex-col", className)}>
       {/* Header with progress and offline indicator */}
       <div className="sticky top-0 z-50 bg-white border-b border-slate-200 shadow-sm">
-        <div className="px-4 py-3">
+        <div className="p-4">
           {/* Offline indicator */}
           {isOffline && (
             <div className="mb-2 flex items-center gap-2 text-sm text-amber-600 bg-amber-50 px-3 py-2 rounded-lg">
@@ -472,12 +472,12 @@ export const MobileWizard: React.FC<MobileWizardProps> = ({
           </div>
           
           {/* Step indicators */}
-          <div className="flex items-center justify-between">
+          <div className="flex items-center justify-center gap-2 overflow-x-auto">
             {steps.map((step, index) => (
               <div
                 key={step.id}
                 className={cn(
-                  "flex items-center justify-center w-8 h-8 rounded-full text-xs font-medium transition-colors",
+                  "flex items-center justify-center w-8 h-8 rounded-full text-xs font-medium transition-colors flex-shrink-0",
                   index < currentStepIndex || completedSteps.has(step.id)
                     ? "bg-green-500 text-white"
                     : index === currentStepIndex
@@ -497,8 +497,8 @@ export const MobileWizard: React.FC<MobileWizardProps> = ({
       </div>
       
       {/* Main content */}
-      <div className="flex-1 px-4 py-6">
-        <Card className="shadow-lg border-slate-200">
+      <div className="flex-1 p-4">
+        <Card className="shadow-sm border-slate-200 overflow-hidden">
           <CardHeader className="pb-4">
             <div className="flex items-center justify-between">
               <div>
@@ -568,17 +568,7 @@ export const MobileWizard: React.FC<MobileWizardProps> = ({
             })()}
           </CardHeader>
           
-          <CardContent>
-            <div style={{ padding: '10px', backgroundColor: '#f0f0f0', marginBottom: '20px', fontSize: '12px' }}>
-              <strong>DEBUG INFO:</strong><br/>
-              Step ID: {currentStep.id}<br/>
-              Step Title: {currentStep.title}<br/>
-              Step Index: {currentStepIndex + 1} of {totalSteps}<br/>
-              Is Valid: {currentValidation?.isValid ? 'Yes' : 'No'}<br/>
-              Errors: {currentValidation?.errors?.length || 0}<br/>
-              Can Proceed: {canProceedToNext() ? 'Yes' : 'No'}<br/>
-              Component: {currentStep.component.name || 'Unknown'}
-            </div>
+          <CardContent className="overflow-hidden p-4">
             {(() => {
               console.log('MobileWizard - About to render StepComponent:', {
                 stepId: currentStep.id,
@@ -588,13 +578,15 @@ export const MobileWizard: React.FC<MobileWizardProps> = ({
                 isOffline
               });
               return (
-                <StepComponent
-                  data={draftData[currentStep.id] || {}}
-                  onDataChange={handleStepDataChange}
-                  onValidationChange={handleValidationChange}
-                  isActive={true}
-                  isOffline={isOffline}
-                />
+                <div className="w-full overflow-hidden">
+                  <StepComponent
+                    data={draftData[currentStep.id] || {}}
+                    onDataChange={handleStepDataChange}
+                    onValidationChange={handleValidationChange}
+                    isActive={true}
+                    isOffline={isOffline}
+                  />
+                </div>
               );
             })()}
           </CardContent>
@@ -602,7 +594,7 @@ export const MobileWizard: React.FC<MobileWizardProps> = ({
       </div>
       
       {/* Footer with navigation */}
-      <div className="sticky bottom-0 bg-white border-t border-slate-200 px-4 py-4">
+      <div className="sticky bottom-0 bg-white border-t border-slate-200 p-4">
         <div className="flex items-center justify-between gap-4">
           <div className="flex items-center gap-2">
             <Button

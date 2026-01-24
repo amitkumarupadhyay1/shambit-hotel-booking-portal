@@ -129,6 +129,128 @@
     @apply bg-background text-foreground;
   }
 
+  /* Text wrapping and overflow fixes */
+  .card-text-wrap {
+    word-wrap: break-word;
+    overflow-wrap: break-word;
+    hyphens: auto;
+    line-break: auto;
+  }
+
+  /* Ensure buttons and cards handle text overflow properly */
+  button, .card {
+    overflow-wrap: break-word;
+    word-wrap: break-word;
+  }
+
+  /* Prevent text from overflowing containers */
+  .text-container {
+    min-width: 0;
+    overflow-wrap: break-word;
+    word-wrap: break-word;
+  }
+
+  /* Amenity card specific fixes */
+  .amenity-card {
+    max-width: 100%;
+    overflow: hidden;
+    word-wrap: break-word;
+    overflow-wrap: break-word;
+    hyphens: auto;
+    display: grid;
+    grid-template-rows: auto 1fr;
+    box-sizing: border-box;
+  }
+
+  .amenity-card * {
+    max-width: 100%;
+    overflow-wrap: break-word;
+    word-wrap: break-word;
+    overflow: hidden;
+    box-sizing: border-box;
+  }
+
+  .amenity-card p,
+  .amenity-card span {
+    white-space: normal;
+    word-break: break-word;
+    overflow-wrap: break-word;
+    hyphens: auto;
+    display: block;
+    width: 100%;
+  }
+
+  /* Force text to stay within bounds */
+  .text-constrained {
+    max-width: 100%;
+    overflow: hidden;
+    word-wrap: break-word;
+    overflow-wrap: break-word;
+    white-space: normal;
+    line-height: 1.4;
+    display: block;
+    width: 100%;
+    box-sizing: border-box;
+  }
+
+  /* Additional overflow prevention */
+  .amenity-card .text-constrained {
+    max-width: 100%;
+    width: 100%;
+    box-sizing: border-box;
+  }
+
+  /* Ensure grid items don't overflow */
+  .amenity-grid {
+    width: 100%;
+    overflow: hidden;
+  }
+
+  .amenity-grid > * {
+    min-width: 0;
+    overflow: hidden;
+    max-width: 100%;
+  }
+
+  /* Specific fix for the flex container inside cards */
+  .amenity-card .flex {
+    min-width: 0;
+    max-width: 100%;
+  }
+
+  .amenity-card .flex-1 {
+    min-width: 0;
+    max-width: 100%;
+    overflow: hidden;
+  }
+
+  /* Responsive grid improvements */
+  @media (max-width: 640px) {
+    .amenity-grid {
+      grid-template-columns: 1fr;
+      gap: 0.75rem;
+    }
+    
+    .amenity-card {
+      min-height: 70px;
+      padding: 0.75rem;
+    }
+  }
+
+  @media (min-width: 641px) and (max-width: 1024px) {
+    .amenity-grid {
+      grid-template-columns: repeat(2, 1fr);
+      gap: 0.75rem;
+    }
+  }
+
+  @media (min-width: 1025px) {
+    .amenity-grid {
+      grid-template-columns: repeat(3, 1fr);
+      gap: 1rem;
+    }
+  }
+
   /* Mobile-first improvements */
   @media (max-width: 768px) {
     /* Ensure touch targets are at least 44px */

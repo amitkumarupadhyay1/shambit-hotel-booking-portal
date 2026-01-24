@@ -225,9 +225,18 @@ export function AmenitySelection({
                 <div className="h-4 bg-gray-200 rounded w-2/3"></div>
               </CardHeader>
               <CardContent>
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+                <div className="amenity-grid grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
                   {Array.from({ length: 6 }).map((_, j) => (
-                    <div key={j} className="h-20 bg-gray-200 rounded"></div>
+                    <div key={j} className="h-20 bg-gray-200 rounded border p-3">
+                      <div className="flex items-center justify-between mb-2">
+                        <div className="flex items-center gap-2">
+                          <div className="w-5 h-5 bg-gray-300 rounded"></div>
+                          <div className="h-4 bg-gray-300 rounded w-16"></div>
+                        </div>
+                        <div className="w-4 h-4 bg-gray-300 rounded"></div>
+                      </div>
+                      <div className="h-3 bg-gray-300 rounded w-full"></div>
+                    </div>
                   ))}
                 </div>
               </CardContent>
@@ -295,16 +304,17 @@ export function AmenitySelection({
                 </div>
               </CardTitle>
             </CardHeader>
-            <CardContent>
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+            <CardContent className="overflow-hidden">
+              <div className="amenity-grid grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 w-full">
                 {amenities.map((amenity) => (
-                  <AmenityCard
-                    key={amenity.id}
-                    amenity={amenity}
-                    isSelected={isAmenitySelected(amenity.id)}
-                    onToggle={() => handleAmenityToggle(amenity.id)}
-                    propertyType={propertyType}
-                  />
+                  <div key={amenity.id} className="min-w-0 overflow-hidden">
+                    <AmenityCard
+                      amenity={amenity}
+                      isSelected={isAmenitySelected(amenity.id)}
+                      onToggle={() => handleAmenityToggle(amenity.id)}
+                      propertyType={propertyType}
+                    />
+                  </div>
                 ))}
               </div>
             </CardContent>
@@ -375,22 +385,47 @@ function AmenityCard({ amenity, isSelected, onToggle, propertyType }: AmenityCar
                       amenity.applicablePropertyTypes.includes(propertyType);
 
   return (
-    <Button
-      variant={isSelected ? "default" : "outline"}
+    <div
       className={cn(
-        "h-auto p-4 flex flex-col items-start gap-2 text-left transition-all",
+        "amenity-card relative cursor-pointer rounded-lg border-2 transition-all duration-200",
+        "min-h-[80px] p-3 w-full max-w-full overflow-hidden",
+        "hover:shadow-md focus:outline-none focus:ring-2 focus:ring-offset-2",
+        "flex flex-col gap-2",
+        isSelected 
+          ? "bg-primary text-primary-foreground border-primary shadow-sm" 
+          : "bg-background hover:bg-accent border-border",
         !isApplicable && "opacity-50 cursor-not-allowed",
         isSelected && "ring-2 ring-primary ring-offset-2"
       )}
-      onClick={onToggle}
-      disabled={!isApplicable}
+      onClick={isApplicable ? onToggle : undefined}
+      role="button"
+      tabIndex={isApplicable ? 0 : -1}
+      onKeyDown={(e) => {
+        if (isApplicable && (e.key === 'Enter' || e.key === ' ')) {
+          e.preventDefault();
+          onToggle();
+        }
+      }}
+      style={{ contain: 'layout style' }}
     >
-      <div className="flex items-center justify-between w-full">
-        <div className="flex items-center gap-2">
-          {getAmenityIcon(amenity.icon)}
-          <span className="font-medium">{amenity.name}</span>
+      <div className="flex items-start justify-between w-full max-w-full gap-2">
+        <div className="flex items-center gap-2 min-w-0 flex-1 max-w-full overflow-hidden">
+          <div className="flex-shrink-0">
+            {getAmenityIcon(amenity.icon)}
+          </div>
+          <span 
+            className="font-medium text-sm leading-tight block w-full max-w-full"
+            style={{ 
+              wordWrap: 'break-word', 
+              overflowWrap: 'break-word',
+              wordBreak: 'break-word',
+              hyphens: 'auto'
+            }}
+          >
+            {amenity.name}
+          </span>
         </div>
-        <div className="flex items-center gap-1">
+        <div className="flex items-center gap-1 flex-shrink-0">
           {amenity.isEcoFriendly && (
             <Leaf className="h-4 w-4 text-green-600" />
           )}
@@ -400,16 +435,32 @@ function AmenityCard({ amenity, isSelected, onToggle, propertyType }: AmenityCar
         </div>
       </div>
       {amenity.description && (
-        <p className="text-xs text-muted-foreground text-left">
+        <p 
+          className="text-xs text-muted-foreground leading-relaxed block w-full max-w-full"
+          style={{ 
+            wordWrap: 'break-word', 
+            overflowWrap: 'break-word',
+            wordBreak: 'break-word',
+            hyphens: 'auto'
+          }}
+        >
           {amenity.description}
         </p>
       )}
       {!isApplicable && (
-        <p className="text-xs text-red-500">
+        <p 
+          className="text-xs text-red-500 leading-relaxed block w-full max-w-full"
+          style={{ 
+            wordWrap: 'break-word', 
+            overflowWrap: 'break-word',
+            wordBreak: 'break-word',
+            hyphens: 'auto'
+          }}
+        >
           Not applicable to {propertyType.toLowerCase().replace('_', ' ')} properties
         </p>
       )}
-    </Button>
+    </div>
   );
 }
 
@@ -432,6 +483,16 @@ function getMockAmenities(): { [category: string]: Amenity[] } {
         name: 'Parking',
         description: 'On-site parking facilities for guests',
         icon: 'parking',
+        isEcoFriendly: false,
+        category: AmenityCategory.PROPERTY_WIDE,
+        applicablePropertyTypes: Object.values(PropertyType),
+        businessRules: [],
+      },
+      {
+        id: '6',
+        name: 'Very Long Amenity Name That Should Wrap Properly',
+        description: 'This is a very long description that should wrap properly within the card boundaries without overflowing and causing layout issues on different screen sizes',
+        icon: 'wifi',
         isEcoFriendly: false,
         category: AmenityCategory.PROPERTY_WIDE,
         applicablePropertyTypes: Object.values(PropertyType),

@@ -191,7 +191,7 @@ export const ProgressiveEnhancement: React.FC<ProgressiveEnhancementProps> = ({
     <div className={cn('progressive-enhancement-wrapper', className)}>
       {/* Viewport controls for development/testing - only render on client */}
       {enableViewportToggle && isClient && (
-        <div className="fixed top-4 right-4 z-50">
+        <div className="fixed top-4 right-4 z-[60]">
           <div className="flex items-center gap-2">
             <Button
               variant="outline"
@@ -269,7 +269,7 @@ export const ProgressiveEnhancement: React.FC<ProgressiveEnhancementProps> = ({
 
       {/* Viewport info indicator - only render on client */}
       {isClient && (
-        <div className="fixed bottom-4 left-4 z-40">
+        <div className="fixed bottom-4 left-4 z-[45]">
           <Badge 
             variant="secondary" 
             className="bg-white/90 backdrop-blur-sm text-xs font-mono"
@@ -348,19 +348,9 @@ export const MobileOptimizedLayout: React.FC<{ children: React.ReactNode; viewpo
   children,
   viewport,
 }) => (
-  <div className="mobile-optimized-layout min-h-screen bg-slate-50">
-    {/* Mobile-specific header */}
-    <div className="sticky top-0 z-40 bg-white border-b border-slate-200 px-4 py-3">
-      <div className="flex items-center justify-between">
-        <h1 className="text-lg font-semibold text-slate-800">Hotel Onboarding</h1>
-        <Badge variant="outline" className="text-xs">
-          {viewport.orientation === 'portrait' ? 'Portrait' : 'Landscape'}
-        </Badge>
-      </div>
-    </div>
-    
-    {/* Mobile-optimized content */}
-    <div className="px-4 py-4">
+  <div className="mobile-optimized-layout">
+    {/* Mobile-optimized content - no duplicate header */}
+    <div className="h-full">
       {children}
     </div>
   </div>
@@ -370,42 +360,11 @@ export const TabletOptimizedLayout: React.FC<{ children: React.ReactNode; viewpo
   children,
   viewport,
 }) => (
-  <div className="tablet-optimized-layout min-h-screen bg-slate-50">
-    <div className="max-w-4xl mx-auto">
-      {/* Tablet-specific header */}
-      <div className="sticky top-0 z-40 bg-white border-b border-slate-200 px-6 py-4">
-        <div className="flex items-center justify-between">
-          <h1 className="text-xl font-semibold text-slate-800">Hotel Onboarding</h1>
-          <div className="flex items-center gap-2">
-            <Badge variant="outline" className="text-xs">
-              Tablet {viewport.orientation}
-            </Badge>
-            <Button variant="ghost" size="sm">
-              <Layout className="h-4 w-4" />
-            </Button>
-          </div>
-        </div>
-      </div>
-      
-      {/* Tablet-optimized content with sidebar */}
-      <div className="flex gap-6 p-6">
-        <div className="flex-1">
-          {children}
-        </div>
-        
-        {/* Optional sidebar for tablet */}
-        <div className="w-80 space-y-4">
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-sm">Progress Overview</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <p className="text-sm text-slate-600">
-                Enhanced tablet experience with sidebar navigation and preview.
-              </p>
-            </CardContent>
-          </Card>
-        </div>
+  <div className="tablet-optimized-layout">
+    <div className="max-w-4xl mx-auto h-full">
+      {/* Tablet-optimized content - let mobile wizard handle its own header */}
+      <div className="h-full">
+        {children}
       </div>
     </div>
   </div>
@@ -415,35 +374,17 @@ export const DesktopOptimizedLayout: React.FC<{ children: React.ReactNode; viewp
   children,
   viewport,
 }) => (
-  <div className="desktop-optimized-layout min-h-screen bg-slate-50">
-    <div className="max-w-7xl mx-auto">
-      {/* Desktop-specific header */}
-      <div className="sticky top-0 z-40 bg-white border-b border-slate-200 px-8 py-4">
-        <div className="flex items-center justify-between">
-          <h1 className="text-2xl font-bold text-slate-800">Hotel Onboarding System</h1>
-          <div className="flex items-center gap-4">
-            <Badge variant="outline">Desktop Experience</Badge>
-            <Button variant="ghost" size="sm">
-              <Eye className="h-4 w-4 mr-2" />
-              Preview
-            </Button>
-            <Button variant="ghost" size="sm">
-              <Maximize2 className="h-4 w-4 mr-2" />
-              Fullscreen
-            </Button>
-          </div>
-        </div>
-      </div>
-      
-      {/* Desktop-optimized content with full sidebar */}
-      <div className="flex gap-8 p-8">
+  <div className="desktop-optimized-layout">
+    <div className="max-w-7xl mx-auto h-full">
+      {/* Desktop-optimized content - let mobile wizard handle its own header */}
+      <div className="flex gap-8 h-full">
         {/* Main content */}
         <div className="flex-1">
           {children}
         </div>
         
         {/* Desktop sidebar with enhanced features */}
-        <div className="w-96 space-y-6">
+        <div className="w-96 space-y-6 p-8">
           <Card>
             <CardHeader>
               <CardTitle className="text-base">Onboarding Assistant</CardTitle>
