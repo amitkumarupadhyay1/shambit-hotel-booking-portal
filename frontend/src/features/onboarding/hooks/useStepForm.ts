@@ -1,12 +1,11 @@
 /**
- * Enhanced Step Form Hook - Store as Single Source of Truth
- * Phase 2: Removes local state, uses store for all form operations
- * Features: Real-time validation, optimistic updates, rollback capability
+ * Simplified Step Form Hook
+ * Works with the simplified onboarding store
  */
 
 import { useCallback, useMemo } from 'react';
 import { useOnboardingStore } from '../store/onboarding';
-import { stepSchemas } from '../validation/schemas';
+import { validateStep, validateField, stepSchemas } from '../validation/schemas';
 
 interface UseStepFormOptions<T> {
   stepId: keyof typeof stepSchemas;
@@ -19,94 +18,98 @@ export function useStepForm<T extends Record<string, any>>({
 }: UseStepFormOptions<T>) {
   const { 
     formData, 
-    fieldErrors, 
-    stepValidations,
+    errors,
     updateField, 
-    validateField,
-    validateStep: validateStepInStore,
-    rollback
+    setError,
+    clearError,
+    saveStep
   } = useOnboardingStore();
   
-  // Get current step data from store (single source of truth)
+  // Get current step data from store
   const currentStepData = useMemo(() => {
     const storeData = formData[stepId];
     return (storeData ? { ...defaultData, ...storeData } : defaultData) as T;
   }, [formData, stepId, defaultData]);
 
-  // Get current step errors
-  const currentStepErrors = useMemo(() => {
-    return fieldErrors[stepId] || {};
-  }, [fieldErrors, stepId]);
-
-  // Get step validation status
-  const stepValidation = useMemo(() => {
-    return stepValidations[stepId] || { success: false, errors: [] };
-  }, [stepValidations, stepId]);
-
-  // Update individual field (delegates to store)
+  // Update individual field
   const updateFieldValue = useCallback((field: keyof T, value: any) => {
     updateField(stepId, field as string, value);
   }, [stepId, updateField]);
 
-  // Bulk update multiple fields
-  const updateData = useCallback((newData: Partial<T>) => {
-    Object.entries(newData).forEach(([field, value]) => {
-      updateField(stepId, field, value);
-    });
-  }, [stepId, updateField]);
-
   // Validate individual field
   const validateFieldValue = useCallback((field: keyof T) => {
-    return validateField(stepId, field as string);
-  }, [stepId, validateField]);
+    const value = currentStepData[field];
+    const validation = validateField(stepId, field as string, value);
+    
+    if (!validation.success && validation.error) {
+      setError(`${stepId}.${field as string}`, validation.error);
+    } else {
+      clearError(`${stepId}.${field as string}`);
+    }
+    
+    return validation;
+  }, [stepId, currentStepData, setError, clearError]);
 
   // Validate entire step
-  const validateStep = useCallback(() => {
-    return validateStepInStore(stepId);
-  }, [stepId, validateStepInStore]);
-
-  // Check if step has any errors
-  const hasErrors = useMemo(() => {
-    return Object.values(currentStepErrors).some(error => error && error.trim() !== '');
-  }, [currentStepErrors]);
-
-  // Check if step is valid (no errors and passes schema validation)
-  const isValid = useMemo(() => {
-    return !hasErrors && stepValidation.success;
-  }, [hasErrors, stepValidation.success]);
+  const validateStepData = useCallback(() => {
+    const validation = validateStep(stepId, currentStepData);
+    
+    if (!validation.success) {
+      // Set general step error
+      setError(stepId, validation.errors.join(', '));
+    } else {
+      clearError(stepId);
+    }
+    
+    return validation;
+  }, [stepId, currentStepData, setError, clearError]);
 
   // Get specific field error
   const getFieldError = useCallback((field: keyof T) => {
-    return currentStepErrors[field as string] || null;
-  }, [currentStepErrors]);
+    return errors[`${stepId}.${field as string}`] || null;
+  }, [errors, stepId]);
 
   // Check if specific field is valid
   const isFieldValid = useCallback((field: keyof T) => {
     const error = getFieldError(field);
-    return !error || error.trim() === '';
+    return !error;
   }, [getFieldError]);
 
+  // Save step
+  const save = useCallback(async () => {
+    const validation = validateStepData();
+    if (validation.success) {
+      await saveStep(stepId);
+    }
+    return validation;
+  }, [validateStepData, saveStep, stepId]);
+
+  // Rollback (simplified - just clear errors)
+  const rollback = useCallback(() => {
+    clearError(stepId);
+    Object.keys(currentStepData).forEach(field => {
+      clearError(`${stepId}.${field}`);
+    });
+  }, [stepId, currentStepData, clearError]);
+
   return {
-    // Data (single source of truth from store)
+    // Data
     formData: currentStepData,
     
     // Validation state
-    errors: currentStepErrors,
-    isValid,
-    hasErrors,
-    stepValidation,
+    errors: errors,
     
     // Field operations
     updateField: updateFieldValue,
-    updateData,
     
     // Validation operations
     validateField: validateFieldValue,
-    validateStep,
+    validateStep: validateStepData,
     getFieldError,
     isFieldValid,
     
-    // Utility
-    rollback, // Rollback to last saved state
+    // Actions
+    save,
+    rollback,
   };
 }

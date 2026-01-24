@@ -1,34 +1,20 @@
 /**
  * Simplified Onboarding Flow
- * Single store, no complex orchestration, clean step rendering
+ * Uses new step definitions and simplified state management
  */
 
 'use client';
 
 import React, { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { Loader2, AlertCircle, CheckCircle, Save } from 'lucide-react';
+import { Loader2, AlertCircle } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
 import { toast } from 'sonner';
 import { useAuth } from '@/hooks/use-auth';
 import { useOnboardingStore } from '../store/onboarding';
-
-// Unified step system
-import { StepRenderer } from './StepRenderer';
-import { stepConfigs } from '../config/step-configs';
-
-const STEPS = [
-  { id: 'basic-details', title: 'Basic Details' },
-  { id: 'location', title: 'Location' },
-  { id: 'amenities', title: 'Amenities' },
-  { id: 'images', title: 'Images' },
-  { id: 'rooms', title: 'Rooms' },
-  { id: 'policies', title: 'Policies' },
-  { id: 'business-features', title: 'Business Features' },
-  { id: 'review', title: 'Review' },
-];
+import { STEP_DEFINITIONS, getStepById } from '../config/step-definitions';
 
 interface OnboardingFlowProps {
   hotelId?: string;
@@ -39,15 +25,12 @@ export function OnboardingFlow({ hotelId }: OnboardingFlowProps) {
   const { user } = useAuth();
   
   const {
-    session,
-    isLoading,
-    error,
+    sessionId,
     currentStep,
-    isDirty,
-    isSaving,
-    lastSaved,
+    isLoading,
+    errors,
+    isInitialized,
     initSession,
-    saveNow,
     nextStep,
     prevStep,
     reset,
@@ -55,28 +38,18 @@ export function OnboardingFlow({ hotelId }: OnboardingFlowProps) {
 
   // Initialize session
   useEffect(() => {
-    if (!session && !isLoading && !error) {
+    if (!sessionId && !isLoading && !isInitialized) {
       initSession(hotelId);
     }
-  }, [session, isLoading, error, hotelId, initSession]);
-
-  // Handle save
-  const handleSave = async () => {
-    try {
-      await saveNow();
-      toast.success('Progress saved successfully');
-    } catch (error) {
-      toast.error('Failed to save progress');
-    }
-  };
+  }, [sessionId, isLoading, isInitialized, hotelId, initSession]);
 
   // Handle navigation
   const handleNext = () => {
-    if (currentStep < STEPS.length - 1) {
+    if (currentStep < STEP_DEFINITIONS.length - 1) {
       nextStep();
     } else {
       // Final submission
-      handleSubmit();
+      handleComplete();
     }
   };
 
@@ -86,18 +59,20 @@ export function OnboardingFlow({ hotelId }: OnboardingFlowProps) {
     }
   };
 
-  const handleSubmit = async () => {
+  const handleComplete = async () => {
     try {
-      await saveNow();
-      toast.success('Onboarding completed successfully!');
-      router.push('/dashboard');
+      if (sessionId) {
+        await useOnboardingStore.getState().saveStep('review');
+        toast.success('Onboarding completed successfully!');
+        router.push('/dashboard');
+      }
     } catch (error) {
       toast.error('Failed to complete onboarding');
     }
   };
 
   // Loading state
-  if (isLoading) {
+  if (isLoading && !isInitialized) {
     return (
       <div className="flex items-center justify-center min-h-screen">
         <div className="text-center">
@@ -109,7 +84,7 @@ export function OnboardingFlow({ hotelId }: OnboardingFlowProps) {
   }
 
   // Error state
-  if (error) {
+  if (errors.session) {
     return (
       <div className="flex items-center justify-center min-h-screen">
         <Card className="w-full max-w-md">
@@ -117,7 +92,7 @@ export function OnboardingFlow({ hotelId }: OnboardingFlowProps) {
             <div className="text-center">
               <AlertCircle className="h-8 w-8 text-red-500 mx-auto mb-4" />
               <h3 className="text-lg font-semibold mb-2">Something went wrong</h3>
-              <p className="text-gray-600 mb-4">{error}</p>
+              <p className="text-gray-600 mb-4">{errors.session}</p>
               <Button onClick={() => reset()}>Try Again</Button>
             </div>
           </CardContent>
@@ -126,9 +101,21 @@ export function OnboardingFlow({ hotelId }: OnboardingFlowProps) {
     );
   }
 
-  const currentStepData = STEPS[currentStep];
-  const stepConfig = stepConfigs[currentStepData.id];
-  const progress = ((currentStep + 1) / STEPS.length) * 100;
+  const currentStepDefinition = STEP_DEFINITIONS[currentStep];
+  const progress = ((currentStep + 1) / STEP_DEFINITIONS.length) * 100;
+
+  if (!currentStepDefinition) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="text-center">
+          <AlertCircle className="h-8 w-8 text-red-500 mx-auto mb-4" />
+          <p>Invalid step</p>
+        </div>
+      </div>
+    );
+  }
+
+  const StepComponent = currentStepDefinition.component;
 
   return (
     <div className="min-h-screen bg-gray-50 py-8">
@@ -139,7 +126,7 @@ export function OnboardingFlow({ hotelId }: OnboardingFlowProps) {
             Complete Your Hotel Setup
           </h1>
           <p className="text-gray-600">
-            Step {currentStep + 1} of {STEPS.length}: {currentStepData.title}
+            Step {currentStep + 1} of {STEP_DEFINITIONS.length}: {currentStepDefinition.title}
           </p>
         </div>
 
@@ -148,29 +135,22 @@ export function OnboardingFlow({ hotelId }: OnboardingFlowProps) {
           <Progress value={progress} className="h-2" />
           <div className="flex justify-between mt-2 text-sm text-gray-500">
             <span>Progress: {Math.round(progress)}%</span>
-            <div className="flex items-center gap-2">
-              {isDirty && (
-                <span className="text-orange-500">Unsaved changes</span>
-              )}
-              {isSaving && (
-                <>
-                  <Save className="h-4 w-4 animate-pulse" />
-                  <span>Saving...</span>
-                </>
-              )}
-              {lastSaved && !isDirty && (
-                <>
-                  <CheckCircle className="h-4 w-4 text-green-500" />
-                  <span>Saved {lastSaved.toLocaleTimeString()}</span>
-                </>
-              )}
-            </div>
+            {currentStepDefinition.estimatedTime && (
+              <span>~{currentStepDefinition.estimatedTime} min</span>
+            )}
           </div>
         </div>
 
         {/* Step Content */}
         <div className="mb-8">
-          <StepRenderer stepId={currentStepData.id} />
+          <Card>
+            <CardContent className="p-6">
+              <StepComponent 
+                onNext={handleNext}
+                onPrev={currentStep > 0 ? handlePrev : undefined}
+              />
+            </CardContent>
+          </Card>
         </div>
 
         {/* Navigation */}
@@ -183,26 +163,9 @@ export function OnboardingFlow({ hotelId }: OnboardingFlowProps) {
             Previous
           </Button>
 
-          <div className="flex gap-2">
-            <Button
-              variant="outline"
-              onClick={handleSave}
-              disabled={isSaving || !isDirty}
-            >
-              {isSaving ? (
-                <>
-                  <Save className="h-4 w-4 animate-pulse mr-2" />
-                  Saving...
-                </>
-              ) : (
-                'Save Progress'
-              )}
-            </Button>
-
-            <Button onClick={handleNext}>
-              {currentStep === STEPS.length - 1 ? 'Complete Setup' : 'Next'}
-            </Button>
-          </div>
+          <Button onClick={handleNext}>
+            {currentStep === STEP_DEFINITIONS.length - 1 ? 'Complete Setup' : 'Next'}
+          </Button>
         </div>
       </div>
     </div>

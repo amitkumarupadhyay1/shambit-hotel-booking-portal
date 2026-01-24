@@ -1,30 +1,22 @@
 /**
  * Onboarding Feature Index
- * Main exports for the onboarding feature
+ * Main exports for the simplified onboarding feature
  */
 
-// Core unified step system
-export {
-  UnifiedStepComponent,
-  StepRenderer,
-  BasicDetailsStep,
-  LocationStep,
-  AmenitiesStep,
-  ImagesStep,
-  RoomsStep,
-  PoliciesStep,
-  BusinessFeaturesStep,
-  ReviewStep,
-} from './components';
+// Core components
+export { OnboardingFlow } from './components/OnboardingFlow';
+
+// Step components
+export { BasicDetailsStep } from './components/steps/BasicDetailsStep';
+export { LocationStep } from './components/steps/LocationStep';
+export { AmenitiesStep } from './components/steps/AmenitiesStep';
 
 // Configuration system
-export { stepConfigs } from './config';
-export type { StepConfig, FieldConfig, SelectOption, StepConfigMap } from './types/step-config';
+export { STEP_DEFINITIONS, getStepById, getStepIndex, getTotalSteps } from './config/step-definitions';
+export type { StepDefinition, StepProps } from './config/step-definitions';
 
 // Hooks
 export { useStepForm } from './hooks/useStepForm';
-export { useOptimisticUpdates } from './hooks/useOptimisticUpdates';
-export { useValidation } from './hooks/useValidation';
 
 // Store
 export { useOnboardingStore } from './store/onboarding';
@@ -52,7 +44,9 @@ export {
   stepSchemas,
   validateStep,
   validateField,
+  validateOnboardingData,
 } from './validation/schemas';
+export type { ValidationResult } from './validation/schemas';
 
-// Examples (for development/documentation)
-export { UnifiedStepExample, ExtendedFieldExample } from './components';
+// API
+export { onboardingApi } from './api/onboarding';

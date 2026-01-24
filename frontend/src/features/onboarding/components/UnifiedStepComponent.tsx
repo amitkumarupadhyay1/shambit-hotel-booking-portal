@@ -7,8 +7,6 @@
 import React from 'react';
 import { StepConfig, FieldConfig } from '../types/step-config';
 import { useStepForm } from '../hooks/useStepForm';
-import { useOptimisticUpdates } from '../hooks/useOptimisticUpdates';
-import { useValidation } from '../hooks/useValidation';
 import { stepSchemas } from '../validation/schemas';
 
 interface UnifiedStepComponentProps {
@@ -29,38 +27,32 @@ export function UnifiedStepComponent({ config, defaultData = {} }: UnifiedStepCo
     defaultData,
   });
 
-  const {
-    hasPendingUpdates,
-    canRollback,
-    isSaving,
-    saveWithRollback,
-    rollbackChanges,
-  } = useOptimisticUpdates();
-
-  const {
-    getFieldValidationStatus,
-    getStepCompletionPercentage,
-  } = useValidation();
-
-  const completionPercentage = getStepCompletionPercentage(config.id as keyof typeof stepSchemas);
+  // Simple completion percentage calculation
+  const completionPercentage = React.useMemo(() => {
+    const requiredFields = config.fields.filter(field => field.required);
+    const completedFields = requiredFields.filter(field => {
+      const value = formData[field.name];
+      return value !== undefined && value !== null && value !== '';
+    });
+    return Math.round((completedFields.length / requiredFields.length) * 100);
+  }, [formData, config.fields]);
 
   const handleSave = async () => {
-    const result = await saveWithRollback();
-    if (result.success) {
-      console.log('Saved successfully');
-    } else {
-      console.error('Save failed:', result.error);
-      if (result.rolledBack) {
-        console.log('Changes rolled back automatically');
+    try {
+      const result = validateStep();
+      if (result.success) {
+        console.log('Step validated successfully');
+      } else {
+        console.error('Validation failed:', result.errors);
       }
+    } catch (error) {
+      console.error('Save failed:', error);
     }
   };
 
   const handleRollback = () => {
-    const success = rollbackChanges();
-    if (success) {
-      console.log('Changes rolled back');
-    }
+    rollback();
+    console.log('Changes rolled back');
   };
 
   const renderField = (field: FieldConfig, index: number) => {
@@ -500,16 +492,13 @@ export function UnifiedStepComponent({ config, defaultData = {} }: UnifiedStepCo
       </div>
 
       {/* Status indicators */}
-      {hasPendingUpdates && (
-        <div className="bg-yellow-50 border border-yellow-200 rounded-md p-3">
-          <div className="flex items-center">
-            <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-yellow-600 mr-2" />
-            <span className="text-yellow-800 text-sm">
-              {isSaving ? 'Saving changes...' : 'Unsaved changes'}
-            </span>
-          </div>
+      <div className="bg-blue-50 border border-blue-200 rounded-md p-3">
+        <div className="flex items-center">
+          <span className="text-blue-800 text-sm">
+            Step completion: {completionPercentage}%
+          </span>
         </div>
-      )}
+      </div>
 
       {/* Form fields */}
       {renderSections()}
@@ -517,23 +506,20 @@ export function UnifiedStepComponent({ config, defaultData = {} }: UnifiedStepCo
       {/* Action buttons */}
       <div className="flex justify-between pt-6 border-t border-gray-200">
         <div className="flex space-x-2">
-          {canRollback && (
-            <button
-              onClick={handleRollback}
-              className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 border border-gray-300 rounded-md hover:bg-gray-200 focus:outline-none focus:ring-2 focus:ring-gray-500"
-            >
-              Undo Changes
-            </button>
-          )}
+          <button
+            onClick={handleRollback}
+            className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 border border-gray-300 rounded-md hover:bg-gray-200 focus:outline-none focus:ring-2 focus:ring-gray-500"
+          >
+            Reset Changes
+          </button>
         </div>
         
         <div className="flex space-x-2">
           <button
             onClick={handleSave}
-            disabled={isSaving}
-            className="px-4 py-2 text-sm font-medium text-white bg-blue-600 border border-transparent rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50"
+            className="px-4 py-2 text-sm font-medium text-white bg-blue-600 border border-transparent rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
           >
-            {isSaving ? 'Saving...' : 'Save'}
+            Save
           </button>
           
           <button
