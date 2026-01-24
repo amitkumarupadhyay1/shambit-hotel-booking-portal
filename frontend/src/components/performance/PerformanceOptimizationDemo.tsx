@@ -18,7 +18,6 @@ import {
   CheckCircle,
   AlertCircle
 } from 'lucide-react';
-import AsyncImageUpload from './AsyncImageUpload';
 import PerformanceMonitor from './PerformanceMonitor';
 import { useMobileOptimization } from '@/hooks/useMobileOptimization';
 
@@ -301,19 +300,15 @@ export default function PerformanceOptimizationDemo() {
             <CardHeader>
               <CardTitle className="flex items-center space-x-2">
                 <ImageIcon className="h-5 w-5" />
-                <span>Async Image Upload Demo</span>
+                <span>Image Upload Demo</span>
               </CardTitle>
             </CardHeader>
             <CardContent>
-              <AsyncImageUpload
-                category="EXTERIOR"
-                entityType="hotel"
-                entityId="demo-hotel-id"
-                maxFiles={5}
-                maxFileSize={5}
-                onUploadComplete={handleImageUploadComplete}
-                onUploadError={handleImageUploadError}
-              />
+              <div className="text-center py-8 text-gray-500">
+                <ImageIcon className="h-12 w-12 mx-auto mb-4 opacity-50" />
+                <p>Image upload demo is available in the onboarding flow.</p>
+                <p className="text-sm mt-2">Visit <code>/onboarding</code> to test the image upload functionality.</p>
+              </div>
             </CardContent>
           </Card>
         </TabsContent>

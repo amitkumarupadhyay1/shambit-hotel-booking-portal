@@ -1,38 +1,7 @@
 import apiClient from './client';
 
 export const hotelsApi = {
-    // Enhanced integrated onboarding API
-    createOnboardingSession: async (data: any) => {
-        const response = await apiClient.post('/hotels/integrated-onboarding/sessions', data);
-        return response.data;
-    },
-
-    updateOnboardingStep: async (sessionId: string, stepId: string, data: any) => {
-        const response = await apiClient.put(`/hotels/integrated-onboarding/sessions/${sessionId}/steps/${stepId}`, data);
-        return response.data;
-    },
-
-    validateOnboardingStep: async (sessionId: string, data: any) => {
-        const response = await apiClient.post(`/hotels/integrated-onboarding/sessions/${sessionId}/validate`, data);
-        return response.data;
-    },
-
-    completeOnboarding: async (sessionId: string, data?: any) => {
-        const response = await apiClient.post(`/hotels/integrated-onboarding/sessions/${sessionId}/complete`, data);
-        return response.data;
-    },
-
-    getOnboardingStatus: async (sessionId: string) => {
-        const response = await apiClient.get(`/hotels/integrated-onboarding/sessions/${sessionId}/status`);
-        return response.data;
-    },
-
-    getMobileConfig: async () => {
-        const response = await apiClient.get('/hotels/integrated-onboarding/mobile-config');
-        return response.data;
-    },
-
-    // Legacy hotel management (kept for backward compatibility)
+    // Hotel management API
     getHotels: async (params?: { city?: string; hotelType?: string }) => {
         const response = await apiClient.get('/hotels', { params });
         return response.data;

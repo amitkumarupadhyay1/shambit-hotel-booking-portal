@@ -2,7 +2,6 @@ import { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { toast } from 'sonner';
 import { authApi } from '@/lib/api/auth';
-import { onboardingApi } from '@/lib/api/onboarding';
 import { authManager } from '@/lib/auth/auth-manager';
 import { useAuthStore } from '@/lib/store/auth-store';
 import { User, LoginCredentials, RegisterCredentials, UserRole } from '@/types/auth';
