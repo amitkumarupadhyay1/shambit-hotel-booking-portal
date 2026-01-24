@@ -15,25 +15,19 @@ import { toast } from 'sonner';
 import { useAuth } from '@/hooks/use-auth';
 import { useOnboardingStore } from '../store/onboarding';
 
-// Step components
-import { BasicDetailsStep } from './steps/BasicDetailsStep';
-import { LocationStep } from './steps/LocationStep';
-import { AmenitiesStep } from './steps/AmenitiesStep';
-import { ImagesStep } from './steps/ImagesStep';
-import { RoomsStep } from './steps/RoomsStep';
-import { PoliciesStep } from './steps/PoliciesStep';
-import { BusinessFeaturesStep } from './steps/BusinessFeaturesStep';
-import { ReviewStep } from './steps/ReviewStep';
+// Unified step system
+import { StepRenderer } from './StepRenderer';
+import { stepConfigs } from '../config/step-configs';
 
 const STEPS = [
-  { id: 'basic-details', title: 'Basic Details', component: BasicDetailsStep },
-  { id: 'location', title: 'Location', component: LocationStep },
-  { id: 'amenities', title: 'Amenities', component: AmenitiesStep },
-  { id: 'images', title: 'Images', component: ImagesStep },
-  { id: 'rooms', title: 'Rooms', component: RoomsStep },
-  { id: 'policies', title: 'Policies', component: PoliciesStep },
-  { id: 'business-features', title: 'Business Features', component: BusinessFeaturesStep },
-  { id: 'review', title: 'Review', component: ReviewStep },
+  { id: 'basic-details', title: 'Basic Details' },
+  { id: 'location', title: 'Location' },
+  { id: 'amenities', title: 'Amenities' },
+  { id: 'images', title: 'Images' },
+  { id: 'rooms', title: 'Rooms' },
+  { id: 'policies', title: 'Policies' },
+  { id: 'business-features', title: 'Business Features' },
+  { id: 'review', title: 'Review' },
 ];
 
 interface OnboardingFlowProps {
@@ -133,7 +127,7 @@ export function OnboardingFlow({ hotelId }: OnboardingFlowProps) {
   }
 
   const currentStepData = STEPS[currentStep];
-  const StepComponent = currentStepData.component;
+  const stepConfig = stepConfigs[currentStepData.id];
   const progress = ((currentStep + 1) / STEPS.length) * 100;
 
   return (
@@ -176,7 +170,7 @@ export function OnboardingFlow({ hotelId }: OnboardingFlowProps) {
 
         {/* Step Content */}
         <div className="mb-8">
-          <StepComponent />
+          <StepRenderer stepId={currentStepData.id} />
         </div>
 
         {/* Navigation */}
