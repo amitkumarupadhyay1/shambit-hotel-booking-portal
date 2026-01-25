@@ -75,33 +75,4 @@ export const onboardingApi = {
       hotelId: response.data.data.hotelId,
     };
   },
-
-  /**
-   * Upload images - using existing image upload endpoint
-   */
-  async uploadImages(sessionId: string, files: File[]): Promise<{
-    images: Array<{
-      id: string;
-      url: string;
-      qualityScore?: number;
-    }>;
-  }> {
-    const formData = new FormData();
-    files.forEach((file) => {
-      formData.append('images', file);
-    });
-
-    // Use the existing image upload endpoint
-    const response = await apiClient.post(
-      `/hotels/images/upload`,
-      formData,
-      {
-        headers: {
-          'Content-Type': 'multipart/form-data',
-        },
-      }
-    );
-
-    return response.data;
-  },
 };

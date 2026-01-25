@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
+import apiClient from '@/lib/api/client';
 
 interface ConnectionInfo {
   effectiveType: '2g' | '3g' | '4g' | 'slow-2g';
@@ -147,20 +148,12 @@ export function useMobileOptimization() {
   // Estimate data usage for an operation
   const estimateDataUsage = useCallback(async (operation: string, dataSize: number): Promise<DataUsageEstimate> => {
     try {
-      const response = await fetch('/api/performance/mobile/bandwidth-estimate', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${localStorage.getItem('token')}`,
-        },
-        body: JSON.stringify({ operation, dataSize }),
+      const response = await apiClient.post('/performance/mobile/bandwidth-estimate', {
+        operation,
+        dataSize
       });
 
-      if (!response.ok) {
-        throw new Error('Failed to estimate data usage');
-      }
-
-      return await response.json();
+      return response.data;
     } catch (error) {
       // Fallback estimation
       const avgSpeed = connectionInfo?.downlink || 5; // Mbps
@@ -178,20 +171,12 @@ export function useMobileOptimization() {
   // Optimize data for transfer
   const optimizeData = useCallback(async (data: any, level: 'low' | 'medium' | 'high' = 'medium') => {
     try {
-      const response = await fetch('/api/performance/mobile/optimize-data', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${localStorage.getItem('token')}`,
-        },
-        body: JSON.stringify({ data, level }),
+      const response = await apiClient.post('/performance/mobile/optimize-data', {
+        data,
+        level
       });
 
-      if (!response.ok) {
-        throw new Error('Failed to optimize data');
-      }
-
-      const result = await response.json();
+      const result = response.data;
       
       // Track data usage
       setDataUsage(prev => prev + (result.optimization.bandwidthSaved / (1024 * 1024)));
@@ -209,17 +194,11 @@ export function useMobileOptimization() {
     priority: 'high' | 'medium' | 'low' = 'medium'
   ) => {
     try {
-      const response = await fetch(`/api/performance/mobile/progressive-loading/${contentType}?priority=${priority}`, {
-        headers: {
-          'Authorization': `Bearer ${localStorage.getItem('token')}`,
-        },
+      const response = await apiClient.get(`/performance/mobile/progressive-loading/${contentType}`, {
+        params: { priority }
       });
 
-      if (!response.ok) {
-        throw new Error('Failed to get loading strategy');
-      }
-
-      return await response.json();
+      return response.data;
     } catch (error) {
       console.error('Failed to get progressive loading strategy:', error);
       // Fallback strategy

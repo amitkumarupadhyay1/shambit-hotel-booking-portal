@@ -101,7 +101,6 @@ export function Header() {
                             aria-label="Main navigation"
                         >
                             {[
-                                { name: "Hotels", href: "/hotels", icon: Crown },
                                 { name: "Homestays", href: "/homestays", icon: Home },
                                 { name: "Packages", href: "/packages", icon: Briefcase },
                             ].map((item) => (
@@ -234,7 +233,6 @@ export function Header() {
                                 {/* Main Navigation */}
                                 <div className="space-y-2 mb-6">
                                     {[
-                                        { name: "Hotels", href: "/hotels", icon: Crown, desc: "Luxury & Budget Stays" },
                                         { name: "Homestays", href: "/homestays", icon: Home, desc: "Local Family Experiences" },
                                         { name: "Packages", href: "/packages", icon: Briefcase, desc: "Complete Travel Deals" },
                                     ].map((item, index) => (

@@ -24,12 +24,6 @@ export const businessFeaturesApi = {
     return response.data;
   },
 
-  // Get formatted business features for display
-  getFormattedBusinessFeatures: async (hotelId: string): Promise<any> => {
-    const response = await apiClient.get(`/hotels/${hotelId}/business-features/formatted`);
-    return response.data;
-  },
-
   // Meeting Rooms
   addOrUpdateMeetingRoom: async (
     hotelId: string,

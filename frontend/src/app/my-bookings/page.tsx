@@ -48,8 +48,8 @@ export default function MyBookingsPage() {
                         </div>
                         <div className="flex items-center gap-4">
                             <span className="text-gray-700">Welcome, {user?.name}</span>
-                            <Link href="/">
-                                <Button variant="outline">Browse Hotels</Button>
+                            <Link href="/search">
+                                <Button variant="outline">Browse Properties</Button>
                             </Link>
                         </div>
                     </div>
@@ -87,8 +87,8 @@ export default function MyBookingsPage() {
                             <Calendar className="h-16 w-16 text-gray-400 mx-auto mb-4" />
                             <h3 className="text-xl font-semibold text-gray-900 mb-2">No bookings yet</h3>
                             <p className="text-gray-600 mb-6">Start exploring amazing hotels in Ayodhya</p>
-                            <Link href="/">
-                                <Button>Browse Hotels</Button>
+                            <Link href="/search">
+                                <Button>Browse Properties</Button>
                             </Link>
                         </CardContent>
                     </Card>

@@ -110,11 +110,6 @@ export default function AdminHotelsPage() {
                                                         {hotel.city}, {hotel.state}
                                                     </div>
                                                 </div>
-                                                <Link href={`/hotels/slug/${hotel.slug}`} target="_blank">
-                                                    <Button variant="ghost" size="sm" className="text-blue-600 hover:text-blue-700 hover:bg-blue-50">
-                                                        <ExternalLink className="h-4 w-4 mr-1" /> Preview
-                                                    </Button>
-                                                </Link>
                                             </div>
 
                                             <div className="grid grid-cols-1 md:grid-cols-2 gap-6 bg-slate-50 p-4 rounded-xl border border-slate-100">
